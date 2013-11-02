@@ -1,0 +1,26 @@
+Design Document
+===============
+
+2.2.2 Alarm Clock
+-----------------
+1. Se adauga in structura thread un membru wakeup_time.
+2. Adaugam in thread.c o lista cu thread-urile care sunt blocate (sleeping).
+3. Adaugarea in lista se face folosind list_insert_ordered pentru a mentine lista sortata dupa timpul de trezire.
+4. La apelul metodei timer_sleep din timer.c se seteaza wake-up time pentru thread-ul curent. In timer_sleep se apeleaza thread_block care necesita intreruperile oprite.
+5. La setarea membrului wakeup_time se adauga thread-ul in lista de threaduri care sunt blocate.
+6. La apelul metodei timer_interrupt se apeleaza metoda handle_sleeping_threads care scoate thread-urile ce trebuiesc trezite din lista de thread-uri blocate si le adauga in ready_list.
+
+2.2.3 Prority Scheduler
+-----------------------
+1. Se adauga in structura thread un membru current_priority.
+2. Modificam comportamentului scheduler-ului. In locul ready_list vom folosi un vector de PRI_MAX + 1 de liste. Fiecare element din vector va contine thread-urile cu prioritatea egala cu indexul. Se aplica round-robin pe lista cu cel mai mare index.
+
+3. In metoda lock_acquire verificam prioritatea threadului care tine lock-ul. Daca prioritatea acestui thread este mai mica decat a threadului care face acquire, promovam threadul care detine lock-ul (ii ridicam prioritatea la prioritatea threadului care face acquire).
+4. In momentul promovarii unui thread, acesta este adaugat la sfarsitul listei cu indexului noua prioritate.
+5. Dupa promovare, in metoda lock_acquire, blocam thread-ul curent, deoarece stim sigur ca nu poate continua executia. Acesta va ajunge la sfarsitul listei, imediat dupa thread-ul nou promovat.
+
+6. In metoda lock_release se reseteaza current_priority a thread-ului curent. In plus, acesta este adaugat la inceptul listei cu prioritate curenta. In acest fel, la terminarea cuantei de timp, algoritmul round robin va lua thread-ul curent ( de pe pozitia 0 ) si-l va muta pe ultimul loc.
+
+2.2.4 Advanced Scheduler
+------------------------
+
