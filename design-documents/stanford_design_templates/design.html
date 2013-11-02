@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+
+  <title>How to Write a Design Document</title>
+  <link rev="made" href="mailto:cs162ATcory.eecs.berkeley.edu">
+</head><body style="background-color: white;">
+<h1>How to Write a Design Document</h1>
+<h2>Overview</h2>
+<ul>
+  <li>Be sure to read through this entire page. It's all relevent.</li>
+  <li>Each design document is worth 40% of the project. While it will
+likely take less than 40% of the time you spend on the project, you
+should take it very seriously. </li>
+  <li>We will grade your designs harshly.
+The design is essentially the most important part of the
+project. Having a good project design can literally cut your total
+coding
+time by a factor of 10. </li>
+  <li>Design documents should be around 2,000 to 4,000 words long. If
+it's
+longer than 5,000 words, we won't read it. So keep'em short and to the
+point. </li>
+  <li>Design documents will be submitted online, in PDF, HTML, or text
+format. We encourage you to use your favorite word processor to make
+your design document, but you must convert it to PDF or text when
+you're done. We'll provide basic directions on how to do that. </li>
+  <li>Here's a <a href="http://inst.eecs.berkeley.edu/%7Ecs162/fa10/sample-project.html">sample project</a> and a <a href="http://inst.eecs.berkeley.edu/%7Ecs162/fa10/sample-design.html">sample design</a> for it. The sample
+project is only a fraction of the length of your projects, though. </li>
+</ul>
+<h2>What goes into a design document?</h2>
+<p>
+A design document is a complete high-level solution to the problem
+presented. It should be detailed enough that somebody who already
+understands the problem could go out and code the project without
+having to make any significant decisions. Further, if this somebody
+happens to be an experienced coder, they should be able to use the
+design document to code the solution in a few hours (not necessarily
+including debugging).
+</p>
+<p>
+So what actually goes in?
+</p>
+<ul>
+  <li>A high-level description of your solution, including <b>design
+decisions</b> and <b>data structures</b> </li>
+  <li><b>Declarations</b> for all new classes, procedures, and
+global/class variables </li>
+  <li><b>Descriptions</b> of all new procedures (unless you can tell
+exactly
+what it does from the name), including the purpose of the procedure,
+and an explanation of how it works and/or pseudocode </li>
+</ul>
+<p> For example, this is the pseudocode I would write for the
+existing <font face="Courier New">Condition::Wait</font>:
+</p>
+<p>
+<span style="font-family: &quot;Courier New&quot;;">void Condition::Wait()
+<br>
+&nbsp;&nbsp;&nbsp;waiter = new Semaphore, initially 0
+<br>
+&nbsp;&nbsp;&nbsp;append waiter to waitQueue
+<br>
+&nbsp;&nbsp;&nbsp;conditionLock-&gt;Release()
+<br>
+&nbsp;&nbsp;&nbsp;waiter-&gt;P()
+<br>
+&nbsp;&nbsp;&nbsp;conditionLock-&gt;Acquire()
+</span></p>
+<p>
+Your pseudocode has to be precise. For instance, in describing your
+solution for the
+<font face="Courier New">Communicator</font> class, it is not enough
+to say
+<br>
+&nbsp;&nbsp;&nbsp;<font face="Courier New">if anybody's waiting, then
+signal cv
+</font><br>
+You need to say how you determine if anybody's waiting, e.g. by saying
+<br>
+&nbsp;&nbsp;&nbsp;<font face="Courier New">if (waitingReceivers&gt;0 or
+waitingSenders&gt;0) then signal cv</font>
+</p>
+<p>Also, another important thing to remember is that a design document
+needs to
+include the <b>correctness invariants</b> and <b>testing strategy</b>. The testing
+strategy includes a clear plan of the testing methodology and may include a description of test cases that will be used to
+test correctness invariants. Focus on the testing strategy. If you
+want, you may itemize things that will need testing.<!--, but do not actually state your test cases in your design
+
+document. Test cases are really boring to read, and we have to read around 13
+
+or so design documents per project.-->
+</p>
+<h2>What <i>doesn't</i> go into a design document?</h2>
+<p>Keep in mind that your TA understands the project very well.
+Do not restate the
+problem in your design document. Your TA is far more interested in
+your solution than in knowing that you understood the problem.
+</p>
+<p>
+Your design document should contain very little actual code, if
+any at all. Include psuedocode for all complex procedures, but do not
+include Java code.
+</p>
+<p>The purpose
+of pseudocode is to avoid all the annoying aspects of programming
+languages that make code both harder to write and harder to read. The
+purpose of pseudocode is <i>not</i> to be imprecise about how you
+solve
+a problem. Comments are welcome, but ASSERT and DEBUG statements, for
+example, do not belong in pseudocode.
+</p>
+<p>
+Remember that we have to <i>read</i> your design documents. If you
+don't think we want to see it, don't put it in!
+</p>
+<h2>How do I convert <i>x</i> to PDF?</h2>
+First convert to postscript:
+<ul>
+  <li>Raw text: use enscript on an instructional machine. </li>
+  <li>HTML: Run netscape on an instructional machine and print to a
+file. </li>
+  <li>Word Document: Convert it to HTML, or try the next alternative. </li>
+  <li>Anything viewable in Windows: install a postscript printer driver
+(e.g. HP Laserjet 5 Postscript) and print your document to a file. It
+will have the .prn extension. Change the .prn to .ps and it should
+work fine. </li>
+</ul>
+Then run the <tt>ps2pdf</tt> command on an instructional machine.
+<p>Be sure to make sure your .pdf file works before you turn it in (try
+viewing it with gs, gsview, or acroread).
+</p>
+<h2>How do I submit a design document?</h2>
+<p>Place your design in a file called <tt>projN-initial-design.[pdf/txt/html]</tt>,
+where <tt>N</tt> is the project number. For project 1, your design
+document should be called <tt>proj1-initial-design.[pdf/txt/html]</tt>. Then
+run
+</p>
+<pre>  tar cf projN-initial-design.tar projN-initial-design.[pdf/txt/html]<br></pre>
+followed by
+<pre>  gzip projN-initial-design.tar<br></pre>
+<p>Now, in the directory containing <tt>projN-initial-design.tar.gz</tt>, run
+</p>
+<pre>  submit projN-initial-design<br></pre>
+again, subtituting the project number for <tt>N</tt>. For project 1,
+you would type
+<pre>  submit proj1-initial-design<br></pre>
+
+To submit the final design doc, you similarly create a <tt>projN-final-design.[pdf/txt/html]</tt>
+and repeat the process, with 'initial' replaced with 'final'.
+
+</body></html>

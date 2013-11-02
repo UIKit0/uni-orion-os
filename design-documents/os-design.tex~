@@ -1,0 +1,80 @@
+
+\documentclass[a4paper,12pt]{report}
+
+\input{os-design.sty}
+
+% \newcommand{\OSName}{\textit{Nachos}}
+\newcommand{\OSName}{\textit{OrionOS}}
+
+\title{The Design of \OSName{} Operating System}
+
+\author{Students' Name}
+
+\onehalfspacing
+
+\begin{document}
+
+\selectlanguage{english}
+% \selectlanguage{romanian}
+
+
+\maketitle
+
+\begin{abstract}
+	A short description of this report content. 
+	
+	Take into account that a design document is a complete high-level solution to the problem presented. It should be detailed enough that somebody who already understands the problem could go out and code the project without having to make any significant decisions. Further, if this somebody happens to be an experienced coder, they should be able to use the design document to code the solution in a few hours (not necessarily including debugging). 
+\end{abstract}
+
+
+\chapter{General Presentation}
+
+\section{Working Team}
+
+Specify the working team members' names and their responsibility.
+
+\begin{enumerate}
+	\item Pană Alexandru
+	    \begin{enumerate}
+	     \item Threads: dealt with AAA
+	     \item Threads: dealt with BBB
+	     \item Threads: dealt with CCC
+	    \end{enumerate}
+
+	\item Soucup Adrian
+	    \begin{enumerate}
+	     \item Threads: dealt with AAA
+	     \item Threads: dealt with BBB
+	     \item Threads: dealt with CCC
+	    \end{enumerate}
+	    
+	\item Vultur Horațiu
+	    \begin{enumerate}
+	     \item Threads: dealt with AAA
+	     \item Threads: dealt with BBB
+	     \item Threads: dealt with CCC
+	    \end{enumerate}
+
+	\item Zene Andrei
+	    \begin{enumerate}
+	     \item Threads: dealt with AAA
+	     \item Threads: dealt with BBB
+	     \item Threads: dealt with CCC
+	    \end{enumerate}
+	   
+\end{enumerate}
+
+
+% \section{System}
+
+
+\input{os-module-1-design}
+
+
+\input{os-module-2-design}
+
+
+\input{os-module-3-design}
+
+
+\end{document}
