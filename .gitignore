@@ -1,0 +1,10 @@
+cscope.files
+cscope.out
+TAGS
+tags
+*.o
+.o
+.cproject
+.project
+.svn/
+.svn
