@@ -140,9 +140,9 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 int64_t thread_get_wakeup_time (void);
-void thread_set_wakeup_time (int64_t);
+void thread_sleep (int64_t);
 
-void handle_sleeping_threads();
-bool thread_wakeup_time_comparison(const struct list_elem *a, const struct list_elem *b, void * aux UNUSED);
+void handle_sleeping_threads(int64_t timer_ticks);
+list_less_func thread_wakeup_time_comparison;
 
 #endif /* threads/thread.h */

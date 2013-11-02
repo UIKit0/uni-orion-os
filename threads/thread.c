@@ -23,6 +23,10 @@
 /* List of processes in THREAD_READY state, that is, processes
  that are ready to run but not actually running. */
 static struct list ready_list;
+
+/* A sorted list containing the processes in THREAD_BLOCKED state,
+ processes that are sleeping. Sorting is done using
+ thread_wakeup_time_comparison function */
 static struct list sleep_list;
 
 /* List of all processes.  Processes are added to this list
@@ -446,7 +450,10 @@ alloc_frame(struct thread *t, size_t size) {
  idle_thread. */
 static struct thread *
 next_thread_to_run(void) {
-	if (list_empty(&ready_list))
+	//if (list_empty(&ready_list)) 			//if no thread to run
+	//	handle_sleeping_threads();			//try to see if there are some sleeping threads that should be waked up
+
+	if(list_empty(&ready_list)) 			//if still no thread to run (no thread has woken up) return the idle thread
 		return idle_thread;
 	else
 		return list_entry (list_pop_front (&ready_list), struct thread, elem) ;
@@ -529,19 +536,18 @@ static tid_t allocate_tid(void)
 
 	return tid;
 }
-int64_t thread_get_wakeup_time(void)
-{
-	return thread_current()->wakeup_time;
-}
 
-void thread_set_wakeup_time(int64_t wakeup_time)
+/* sets the time at which the thread should wake up and puts
+ * the thread in the sleeping threads list */
+void thread_sleep(int64_t wakeup_time)
 {
 	thread_current()->wakeup_time = wakeup_time;
 	list_insert_ordered(&sleep_list, &(thread_current()->elem),
 			thread_wakeup_time_comparison, NULL );
-	//list_push_back(&sleep_list, &(thread_current())->elem);
 }
 
+/* comparison function to order the sleeping threads ascending by
+ * their wakeup time */
 bool thread_wakeup_time_comparison(const struct list_elem *a,
 								   const struct list_elem *b,
 								   void * aux UNUSED)
@@ -550,12 +556,15 @@ bool thread_wakeup_time_comparison(const struct list_elem *a,
 			< list_entry(b, struct thread, elem) ->wakeup_time;
 }
 
-void handle_sleeping_threads()
+/* This function checks if there are sleeping threads that should
+ * wake up at this moment and calls the function thread_unblock for
+ * each of those threads. */
+void handle_sleeping_threads(int64_t timer_ticks)
 {
 	if (list_empty(&sleep_list)) {
 		return;
 	}
-	int64_t crt_tick = timer_ticks();
+	int64_t crt_tick = timer_ticks;
 	struct list_elem *it, *next;
 	for (it = list_begin(&sleep_list);
 		it != list_end(&sleep_list)
