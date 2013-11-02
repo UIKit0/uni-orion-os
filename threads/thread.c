@@ -518,7 +518,8 @@ static void schedule(void) {
 }
 
 /* Returns a tid to use for a new thread. */
-static tid_t allocate_tid(void) {
+static tid_t allocate_tid(void)
+{
 	static tid_t next_tid = 1;
 	tid_t tid;
 
@@ -528,34 +529,42 @@ static tid_t allocate_tid(void) {
 
 	return tid;
 }
-int64_t thread_get_wakeup_time(void) {
+int64_t thread_get_wakeup_time(void)
+{
 	return thread_current()->wakeup_time;
 }
-void thread_set_wakeup_time(int64_t wakeup_time) {
+
+void thread_set_wakeup_time(int64_t wakeup_time)
+{
 	thread_current()->wakeup_time = wakeup_time;
-	//list_insert_ordered(&sleep_list, &(thread_current()->elem),
-	//		thread_wakeup_time_comparison, NULL );
-	list_push_back(&sleep_list, &(thread_current())->elem);
+	list_insert_ordered(&sleep_list, &(thread_current()->elem),
+			thread_wakeup_time_comparison, NULL );
+	//list_push_back(&sleep_list, &(thread_current())->elem);
 }
 
 bool thread_wakeup_time_comparison(const struct list_elem *a,
-								   const struct list_elem *b, void * aux UNUSED) {
+								   const struct list_elem *b,
+								   void * aux UNUSED)
+{
 	return list_entry(a, struct thread, elem) ->wakeup_time
 			< list_entry(b, struct thread, elem) ->wakeup_time;
 }
 
-void handle_sleeping_threads() {
+void handle_sleeping_threads()
+{
 	if (list_empty(&sleep_list)) {
 		return;
 	}
 	int64_t crt_tick = timer_ticks();
-	struct list_elem *it;
+	struct list_elem *it, *next;
 	for (it = list_begin(&sleep_list);
-			it != list_end(&sleep_list)
-					&& list_entry(it, struct thread, elem) ->wakeup_time
-							<= crt_tick; it = list_remove(it))
+		it != list_end(&sleep_list)
+			  && list_entry(it, struct thread, elem) ->wakeup_time <= crt_tick;
+		)
 	{
+		next = list_remove(it);
 		thread_unblock( list_entry(it, struct thread, elem) );
+		it = next;
 	}
 }
 
