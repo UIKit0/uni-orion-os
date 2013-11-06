@@ -209,3 +209,69 @@
     \subsection{Tests}
 
 	alarm-priority, priority-change, priority-condvar, priority-donate-chain, priority-donate-lower, priority-donate-multiple, priority-donate-nest, priority-donate-one, priority-donate-sema, priority-fifo, priority-preempt, priority-sema
+
+\section{Advanced scheduler}
+
+    \subsection{Initial Functionality}
+
+	At the beginning of this project the scheduler is implented as a priority scheduler. We want to reimplement it as an advanced scheduler.
+
+    \subsection{Data Structures and Functions}
+
+    \begin{lstlisting}
+      struct thread
+      {
+	    ...
+	  /* */
+	  int nice;
+	  /* */
+	  int64_t current_cpu;  
+	    ...
+      };      
+
+      /* load average of the whole system */
+      int64_t load_avg;
+
+    \end{lstlisting}
+
+
+    \subsection{Functionality}
+
+	\begin{program}
+	\mbox{The timer\_interrupt function modification:}     
+	\PROC |timer\_interrupt|() \BODY
+		recent\_cpu[running\_thread]:=recent\_cpu[running\_thread] + 1;
+		\IF TIMER\_FREQ \% TIMER\_TICKS \EQ 0 
+		      \THEN thread\_for\_each(all\_threads\_list, thread\_recompute\_priority); 
+		      \ELSE thread\_recompute\_priority(running\_thread);
+		\FI;
+	\END;
+	\PROC |thread\_recompute\_priority|(thread) \BODY
+		ready\_threads = count(ready\_list);
+		\mbox{Use functions from fixed-point.h lib to compute the next expressions};
+		load\_avg:= (59/60) * load\_avg + (1/60)*ready_threads; 
+		recent\_cpu[thread]:= (2*load\_avg)/(2 * load\_avg + 1) + recent\_cpu[t] + nice[t];
+		new\_priority:=clamp(PRI\_MAX - (recent\_cpu / 4) - (nice * 2));
+		old\_priority:=priority[thread];
+		\IF new\_priority != old\_priority
+		      \THEN remove(ready\_list[old\_priority], thread.elem);
+			    push\_back(ready\_list[new\_priority], thread.elem);
+		\FI;
+	\END;
+	\end{program}
+
+	It is important that computations for recent\_cpu and load\_avg are done with functions from fixed\_point.h, because these two variables are real numbers.
+
+	In order to be able to choose between the MLFQS scheduler and the Priority Scheduler when running the tests, the thread\_mlfqs flag is used. If this flag is set, the functions 
+	\begin{itemize}
+	  \item \textit{thread\_create} ignores the priority given as a parameter, and creates a thread with priority PRI\_DEFAULT,
+	  \item \textit{thread\_set\_priority}, does not change the priority anymore
+	  \item \textit{lock\_aquire} and \textit{lock\_release} don't do priority donation anymore
+	\end{itemize}
+
+    \subsection{Design Decisions}
+
+
+    \subsection{Tests}
+
+	
