@@ -220,6 +220,8 @@
 
     \begin{lstlisting}
 
+      /* create new files fixed_point.c and fixed_point.h*/
+
       struct thread
       {
 	    ...
@@ -232,6 +234,34 @@
 
       /* load average of the whole system */
       int64_t load_avg;
+
+      /* add the following header functions in the file
+	fixed_point.h. These function represents operation
+	between fixed-points and integer values. The 
+	implementation of the files are in the file 
+        fixed_point.c.*/
+	int64_t fp_from_int(int n);
+	int fp_to_int_rz(int64_t fp);
+	int fp_to_int_rn(int64_t fp);
+	int64_t fp_add(int64_t x, int64_t y);
+	int64_t fp_subtract(int64_t x, int64_t y);
+	int64_t fp_mult(int64_t x, int64_t y);
+	int64_t fp_div(int64_t x, int64_t y);
+	int64_t fp_int_add(int64_t x, int y);
+	int64_t fp_int_subtract(int64_t x, int y);
+	int64_t fp_int_mult(int64_t x, int y);
+	int64_t fp_int_div(int64_t x, int y);
+
+      /* modify the function timer_interrupt in which we
+	we calculate for each the recent_cpu using the 
+	function thread_for_each */
+	void timer_interrupt();
+
+      /* add a new function that recompute the new priority
+	if the priority has changed than the thread is 
+        pop from the thread and inserted again with the
+        new priority */
+	void thread_recompute_priority( struct thread );
 
     \end{lstlisting}
 
