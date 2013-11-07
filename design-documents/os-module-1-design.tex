@@ -306,7 +306,7 @@ O(1) insertion/removal. We could alternatively use sorted data structures.
 	\end{itemize}
 
     \subsection{Design Decisions}
-We chose the vector of queues because of O(1) constant time retrieval and insertion. This means that the system scheduler will run with the same speed regardless of the numbers of threads. The choice of editing the functions thread\_yield(), thread\_unblock() and next\_thread\_to\_run() is good because all the synchronization mechanisms and sleeps already depend on them so we don't need to worry about how they are implemented.
+We chose the vector of queues because of O(1) constant time retrieval and insertion. This means that the scheduler will run with the same speed regardless of the numbers of threads that are currently in the system. The choice of editing the functions thread\_yield(), thread\_unblock() and next\_thread\_to\_run() is good because all the synchronization mechanisms and sleeps already depend on them so we don't need to worry about how they are implemented.
 
 
 
