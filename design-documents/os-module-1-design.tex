@@ -203,8 +203,11 @@
     \subsection{Design Decisions}
 
 	why promoting/lessening is done in \textit{lock\_aquire} / \textit{lock\_release}?
+
+	Another idea is to handle this in thread\_tick procedure, but we found out that it's generally a bad idea to load the interrupt handling code. If we would choose to do that the running time on each thread\_tick interrupt could degenerate to O(n) where n is the lock count of the system. So for each thread that is running and waiting for a lock to edit the lock holder's priority and let the schedule decide. This also solves the locking stack problem.
 	
 	why vector of lists?
+O(1) insertion/removal. We could alternatively use sorted data structures.
 
     \subsection{Tests}
 
@@ -228,9 +231,9 @@
 	  /* */
 	  int nice;
 	  /* */
-	  int64_t current_cpu;  
+	  int64_t recent_cpu;
 	    ...
-      };      
+      };
 
       /* load average of the whole system */
       int64_t load_avg;
@@ -290,6 +293,8 @@
 		\FI;
 	\END;
 	\end{program}
+	We keep the vector V, of queues that we used when building the priority scheduler. V[i] represents the queue with priority i. By convention when the schedule is called, the next\_thread\_to\_run() procedure will remove the thread from the V[i].front() (where i represents the index with the highest priority) and will push it back in V[newPriority] in thread\_yield() proc and thread\_unblock().
+
 
 	It is important that computations for recent\_cpu and load\_avg are done with functions from fixed\_point.h, because these two variables are real numbers.
 
@@ -301,6 +306,8 @@
 	\end{itemize}
 
     \subsection{Design Decisions}
+We chose the vector of queues because of O(1) constant time retrieval and insertion. This means that the system scheduler will run with the same speed regardless of the numbers of threads. The choice of editing the functions thread\_yield(), thread\_unblock() and next\_thread\_to\_run() is good because all the synchronization mechanisms and sleeps already depend on them so we don't need to worry about how they are implemented.
+
 
 
     \subsection{Tests}
