@@ -10,6 +10,8 @@
     \subsection{Data Structures and Functions}
 
     \begin{lstlisting}
+
+      "In thread.c/thread.h:"
 	struct thread
 	{
 
@@ -87,19 +89,43 @@
 
     \subsection{Tests}
 
-    alarm-single, alarm-multiple, alarm-negative, alarm-simultaneous, alarm-zero
+    \textbf{alarm-negative}\\
+    \textit{Source:} tests/threads/alarm-negative.c\\
+    \textit{Purpose:} Checks that the OS doesn't crash when a thread is put to sleep for a negative ammount of ticks.\\
+    \textit{Description:} The current thread is put to sleep for -100 ticks.
+    
+    \textbf{alarm-zero}\\
+    \textit{Source:} tests/threads/alarm-zero.c
+    \textit{Purpose:} Checks that the OS doesn't put the thread to sleep at all if timer\_sleep is called with a value of 0 ticks.\\
+    \textit{Description:} The current thread is put to sleep for 0 ticks. No checks are made.
+    
+    \textit{Solution: } In function timer\_sleep, do nothing if sleep\_time is <= 0.\\
 
+    \textbf{alarm-simultaneous}\\
+    \textit{Source:} tests/threads/alarm-simultaneous.c\\
+    \textit{Purpose:} Creates N threads, each of which sleeps a different, fixed duration, M times. Records the wake-up order and verifies that it is valid.\\
+    \textit{Description:} Each thread is put to sleep 5 times and scheduled to wake up at the same time as all the other threads. The test records the wake times for each iteration relative to the first thread. The first thread must wake up 10 ticks later (relative to it's own previous wakeup time). The rest of the treads must wake up during the same tick as the first (0 ticks relative to the first).
 
+    \textbf{alarm-multiple}\\
+    \textit{Source:} tests/threads/alarm-wait.c\\
+    \textit{Purpose:} Creates N threads, each of which sleeps a different, fixed duration, M times. Records the wake-up order and verifies that it is valid.\\
+    \textit{Description:} Starts 5 threads, each sleeping for thread\_id * 10 ticks each iteration for 7 iterations. The wakeup time for each thread is given by sleep\_duration * iteration for each iteration. The test checks that the wake up times are in ascending order (the threads did indeed wake up at the right times).
+
+    \textbf{alarm-single}\\
+    \textit{Source:} tests/threads/alarm-wait.c\\
+    \textit{Purpose:} Creates N threads, each of which sleeps a different, fixed duration, M times. Records the wake-up order and verifies that it is valid.\\
+    \textit{Description:} Uses the same test as alarm-multiple, but with only one iteration per thread.
 
 \section{Priority scheduler}
 
     \subsection{Initial Functionality}
 
-	At the beginning of this project the scheduler is implented as a Round-Robin scheduler. We want to reimplement it as a priority scheduler.
+	At the beginning of this project the scheduler is implented as a Round-Robin scheduler. We want to reimplement it as a priority scheduler.		
 
     \subsection{Data Structures and Functions}
 
     \begin{lstlisting}
+    "In thread.c/thread.h:"
       struct thread
       {
 	    ...
@@ -114,7 +140,7 @@
 	  int current_priority;		
 	    ...
       };
-
+      
       /* ready_list[i] contains the threads of
       priority i having the status THREAD_READY. */
       static struct list ready_list[PRI_MAX + 1];
@@ -129,6 +155,11 @@
       default fixed priority. */
       void thread_lessen ();
 
+      /* checks if new priority is not the higest priority 
+      anymore and if so yields the cpu. */
+      void thread_set_priority(int);
+
+    "In synch.c/synch.h:"
       /* reimplementation of thread_unblock which checks 
       if the new READY thread is more prioritary than the 
       current thread, and if so, it forces current thread 
@@ -202,16 +233,16 @@
 
     \subsection{Design Decisions}
 
-	why promoting/lessening is done in \textit{lock\_aquire} / \textit{lock\_release}?
-
+	\textit{Why promoting/lessening is done in \textit{lock\_aquire} / \textit{lock\_release}?}
 	Another idea is to handle this in thread\_tick procedure, but we found out that it's generally a bad idea to load the interrupt handling code. If we would choose to do that the running time on each thread\_tick interrupt could degenerate to O(n) where n is the lock count of the system. So for each thread that is running and waiting for a lock to edit the lock holder's priority and let the schedule decide. This also solves the locking stack problem.
-	
-	why vector of lists?
-O(1) insertion/removal. We could alternatively use sorted data structures.
+
+	\textit{Why vector of lists?}
+	O(1) insertion/removal. We could alternatively use sorted data structures.
 
     \subsection{Tests}
 
-	alarm-priority, priority-change, priority-condvar, priority-donate-chain, priority-donate-lower, priority-donate-multiple, priority-donate-nest, priority-donate-one, priority-donate-sema, priority-fifo, priority-preempt, priority-sema
+	alarm-priority, priority-change, priority-condvar, priority-donate-chain, priority-donate-lower, priority-donate-multiple, priority-donate-nest, priority-donate-one, priority-donate-sema, priority-fifo, priority-preempt, priority-sema.
+	
 
 \section{Advanced scheduler}
 
@@ -223,8 +254,7 @@ O(1) insertion/removal. We could alternatively use sorted data structures.
 
     \begin{lstlisting}
 
-      /* create new files fixed_point.c and fixed_point.h*/
-
+    "In thread.c:"
       struct thread
       {
 	    ...
@@ -238,6 +268,16 @@ O(1) insertion/removal. We could alternatively use sorted data structures.
       /* load average of the whole system */
       int64_t load_avg;
 
+    /* add a new function that recompute the new priority
+	if the priority has changed than the thread is 
+        pop from the thread and inserted again with the
+        new priority */
+	void thread_recompute_priority( struct thread );
+
+
+      /* create new files fixed_point.c and fixed_point.h*/
+    
+  "In fixed_point.h/fixed_point.c:"
       /* add the following header functions in the file
 	fixed_point.h. These function represents operation
 	between fixed-points and integer values. The 
@@ -255,16 +295,11 @@ O(1) insertion/removal. We could alternatively use sorted data structures.
 	int64_t fp_int_mult(int64_t x, int y);
 	int64_t fp_int_div(int64_t x, int y);
 
+    "In timer.c:"
       /* modify the function timer_interrupt in which we
 	we calculate for each the recent_cpu using the 
 	function thread_for_each */
 	void timer_interrupt();
-
-      /* add a new function that recompute the new priority
-	if the priority has changed than the thread is 
-        pop from the thread and inserted again with the
-        new priority */
-	void thread_recompute_priority( struct thread );
 
     \end{lstlisting}
 
@@ -295,7 +330,6 @@ O(1) insertion/removal. We could alternatively use sorted data structures.
 	\end{program}
 	We keep the vector V, of queues that we used when building the priority scheduler. V[i] represents the queue with priority i. By convention when the schedule is called, the next\_thread\_to\_run() procedure will remove the thread from the V[i].front() (where i represents the index with the highest priority) and will push it back in V[newPriority] in thread\_yield() proc and thread\_unblock().
 
-
 	It is important that computations for recent\_cpu and load\_avg are done with functions from fixed\_point.h, because these two variables are real numbers.
 
 	In order to be able to choose between the MLFQS scheduler and the Priority Scheduler when running the tests, the thread\_mlfqs flag is used. If this flag is set, the functions 
@@ -308,6 +342,5 @@ O(1) insertion/removal. We could alternatively use sorted data structures.
     \subsection{Design Decisions}
 We chose the vector of queues because of O(1) constant time retrieval and insertion. This means that the scheduler will run with the same speed regardless of the numbers of threads that are currently in the system. The choice of editing the functions thread\_yield(), thread\_unblock() and next\_thread\_to\_run() is good because all the synchronization mechanisms and sleeps already depend on them so we don't need to worry about how they are implemented.
 
-
-
     \subsection{Tests}
+	mlfqs-block, mlfqs-fair, mlfqs-load-1, mlfqs-load-60 mlfqs-load-avg, mlfqs-recent-1
