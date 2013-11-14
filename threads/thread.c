@@ -22,7 +22,9 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list;
+//static struct list ready_list;
+
+static struct list ready_list[PRI_MAX + 1];
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -90,8 +92,13 @@ thread_init (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   lock_init (&tid_lock);
-  list_init (&ready_list);
   list_init (&all_list);
+
+  int i = 0;
+  for ( i = 0; i < PRI_MAX + 1; ++i )
+  {
+    list_init( &ready_list[i] );
+  }
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -245,7 +252,9 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+
+  list_push_back( &ready_list[ t->current_priority ], &t->elem );
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -315,8 +324,10 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+  if (cur != idle_thread)
+  { 
+    list_push_back( &ready_list[ cur->current_priority ], &cur->elem );
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -351,6 +362,18 @@ int
 thread_get_priority (void) 
 {
   return thread_current ()->priority;
+}
+
+/* Promotes a thread to current thread's priority */
+void thread_promote(struct thread* t)
+{
+  t->current_priority = thread_current ()->current_priority;
+}
+
+/* Force current thread to it's default fixed priority  */
+void thread_lessen(void)
+{
+  thread_current ()->current_priority = thread_current ()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -468,6 +491,8 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->current_priority = priority;
+
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 }
@@ -492,11 +517,14 @@ alloc_frame (struct thread *t, size_t size)
    idle_thread. */
 static struct thread *
 next_thread_to_run (void) 
-{
-  if (list_empty (&ready_list))
-    return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+{  
+     int priority = PRI_MAX;
+     while ( priority >= 0 && list_empty( &ready_list[ priority ] ) )
+     {
+       --priority;
+     }
+     return priority >= 0 ? list_entry( list_pop_front( &ready_list[ priority ] ), struct thread, elem ) : idle_thread;
+
 }
 
 /* Completes a thread switch by activating the new thread's page
