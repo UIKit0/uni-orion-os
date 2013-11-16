@@ -277,15 +277,28 @@ thread_name (void)
 }
 
 int thread_get_ready_threads(void) {
-	return ready_mlfq_size;
+
+	int sz = 0;
+	struct list_elem *e;
+	for (e = list_begin (&all_list); e != list_end (&all_list);
+	     e = list_next (e))
+	    {
+	      struct thread *t = list_entry (e, struct thread, allelem);
+	      if( (t->status == THREAD_RUNNING || t->status == THREAD_READY) && t != idle_thread)
+	    	  ++sz;
+	    }
+
+	return sz;
 }
 
 void thread_recompute_load_avg (void)
 {
+	int tcount = thread_get_ready_threads();
+
 	load_avg = fp_int_div(
 					fp_int_add(
 							fp_int_mult(load_avg, 59),
-							thread_get_ready_threads()),
+							tcount),
 					60);
 }
 
