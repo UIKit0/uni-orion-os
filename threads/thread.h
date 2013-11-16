@@ -91,6 +91,9 @@ struct thread
     int current_priority;		/* Can be either the fix priority or the priority inherited by donation. */
     struct list_elem allelem;           /* List element for all threads list. */
 
+    int nice;
+    int64_t recent_cpu;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -139,7 +142,11 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+void thread_recompute_priority( struct thread *t, void* aux);
+
 void thread_promote( struct thread* t );
-void thread_lessen();
+void thread_lessen(void);
+
+int thread_get_ready_threads(void);
 
 #endif /* threads/thread.h */
