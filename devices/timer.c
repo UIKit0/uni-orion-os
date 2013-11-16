@@ -150,6 +150,7 @@ static void timer_interrupt(struct intr_frame *args UNUSED) {
 		if (ticks % TIMER_FREQ == 0) {
 			//each second we must recompute the recent CPU for all threads
 			thread_foreach(thread_recompute_priority, NULL);
+			thread_recompute_load_avg();
 		}
 	}
 

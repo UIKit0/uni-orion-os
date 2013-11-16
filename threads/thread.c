@@ -277,7 +277,16 @@ thread_name (void)
 }
 
 int thread_get_ready_threads(void) {
-	return 0;
+	return ready_mlfq_size;
+}
+
+void thread_recompute_load_avg (void)
+{
+	load_avg = fp_int_div(
+					fp_int_add(
+							fp_int_mult(load_avg, 59),
+							thread_get_ready_threads()),
+					60);
 }
 
 void thread_recompute_priority( struct thread *t, void* aux UNUSED) {
@@ -287,11 +296,6 @@ void thread_recompute_priority( struct thread *t, void* aux UNUSED) {
 							     fp_int_add(fp_int_mult(load_avg, 2), 1)),
 					    t->nice);
 
-	load_avg = fp_int_div(
-					fp_int_add(
-							fp_int_mult(load_avg, 59),
-							thread_get_ready_threads()),
-					60);
 
 	int newPriority = PRI_MAX - fp_to_int_rn( fp_int_div(t->recent_cpu, 4) ) - t->nice * 2;
 
