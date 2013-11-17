@@ -159,8 +159,8 @@ static void timer_interrupt(struct intr_frame *args UNUSED) {
 		cthread->recent_cpu = fp_int_add(cthread->recent_cpu, 1);
 		if (ticks % TIMER_FREQ == 0) {
 			//each second we must recompute the recent CPU for all threads
-			thread_foreach(thread_recompute_priority, NULL);
 			thread_recompute_load_avg();
+			thread_foreach(thread_recompute_priority, NULL);
 		}
 	}
 

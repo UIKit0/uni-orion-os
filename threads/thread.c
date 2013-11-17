@@ -97,9 +97,9 @@ void thread_init(void) {
 
   load_avg = fp_from_int(0);
   ready_mlfq_size = 0;
-	lock_init(&tid_lock);
-	list_init(&sleep_list);
-	list_init(&all_list);
+  lock_init(&tid_lock);
+  list_init(&sleep_list);
+  list_init(&all_list);
 
 
 
@@ -230,6 +230,11 @@ void thread_block(void) {
 	ASSERT(!intr_context ());
 	ASSERT(intr_get_level () == INTR_OFF);
 
+	if(thread_current() != idle_thread)
+	if(thread_current()->status == THREAD_RUNNING ||
+			thread_current()->status == THREAD_READY)
+			--ready_mlfq_size;
+
 	thread_current()->status = THREAD_BLOCKED;
 
 	schedule();
@@ -253,8 +258,10 @@ void thread_unblock(struct thread *t) {
 
   /* @ADRIAN:
    * If the contents of ready_list will change please don't forget to update the ready_mlfq_size too */
-  ++ready_mlfq_size;
-  list_push_back( &ready_list[ t->current_priority ], &t->elem );
+	if(t != idle_thread)
+		++ready_mlfq_size;
+	list_push_back( &ready_list[ t->current_priority ], &t->elem );
+
 
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
@@ -268,6 +275,7 @@ thread_name(void) {
 
 int thread_get_ready_threads(void) {
 
+//	return ready_mlfq_size;
 	int sz = 0;
 	struct list_elem *e;
 	for (e = list_begin (&all_list); e != list_end (&all_list);
@@ -279,6 +287,7 @@ int thread_get_ready_threads(void) {
 	    }
 
 	return sz;
+	/**/
 }
 
 void thread_recompute_load_avg (void)
@@ -292,7 +301,7 @@ void thread_recompute_load_avg (void)
 					60);
 }
 
-void thread_recompute_priority( struct thread *t, void* aux UNUSED) {
+void thread_recompute_priority( struct thread *t, void* aux) {
 
 	t->recent_cpu =
 			fp_int_add( fp_div(  fp_mult(fp_int_mult(load_avg, 2), t->recent_cpu),
@@ -311,9 +320,11 @@ void thread_recompute_priority( struct thread *t, void* aux UNUSED) {
 	t->current_priority = newPriority;
 	t->priority = newPriority;
 
-	if(t->status == THREAD_READY) {
-		list_remove(&t->elem);
-		list_push_back( &ready_list[ t->current_priority ], &t->elem );
+	if (aux == 0) {
+		if (t->status == THREAD_READY) {
+			list_remove(&t->elem);
+			list_push_back(&ready_list[t->current_priority], &t->elem);
+		}
 	}
 }
 
@@ -354,7 +365,14 @@ void thread_exit(void) {
 	 when it calls thread_schedule_tail(). */
 	intr_disable();
 	list_remove(&thread_current()->allelem);
+
+	if(thread_current() != idle_thread)
+	if(thread_current()->status == THREAD_READY ||
+			thread_current()->status == THREAD_RUNNING)
+		--ready_mlfq_size;
+
 	thread_current()->status = THREAD_DYING;
+
 	schedule();
 	NOT_REACHED ()
 	;
@@ -369,13 +387,11 @@ void thread_yield(void) {
 	ASSERT(!intr_context ());
 
 	old_level = intr_disable();
-  if (cur != idle_thread)
-  { 
-	  /* @ADRIAN:
-	   * If the contents of ready_list will change please don't forget to update the ready_mlfq_size too */
-	  ++ready_mlfq_size;
-	  list_push_back( &ready_list[ cur->current_priority ], &cur->elem );
-  }
+	if (cur != idle_thread)
+	{
+		list_push_back( &ready_list[ cur->current_priority ], &cur->elem );
+	}
+
 	cur->status = THREAD_READY;
 	schedule();
 	intr_set_level(old_level);
@@ -529,10 +545,17 @@ static void init_thread(struct thread *t, const char *name, int priority) {
 	t->status = THREAD_BLOCKED;
 	strlcpy(t->name, name, sizeof t->name);
 	t->stack = (uint8_t *) t + PGSIZE;
-	t->priority = priority;
-  t->current_priority = priority;
-  t->recent_cpu = fp_from_int(0);
-  t->nice = 0;
+
+	if (thread_mlfqs) {
+		t->recent_cpu = fp_from_int(0);
+	    t->nice = 0;
+		thread_recompute_priority(t, 1);
+	}
+	else {
+
+		t->priority = priority;
+		t->current_priority = priority;
+	}
 
 	t->magic = THREAD_MAGIC;
 	list_push_back(&all_list, &t->allelem);
@@ -565,11 +588,12 @@ next_thread_to_run(void)
      }
      /* @ADRIAN:
       * If the contents of ready_list will change please don't forget to update the ready_mlfq_size too */
-     if(priority >= 0)
-    	 --ready_mlfq_size;
-
-     return priority >= 0 ? list_entry( list_pop_front( &ready_list[ priority ] ), struct thread, elem ) : idle_thread;
-
+     if(priority >= 0) {
+    	 struct thread *thr = list_entry(list_pop_front( &ready_list[ priority ] ), struct thread, elem );
+    	 return thr;
+     }
+     --ready_mlfq_size;
+     return idle_thread;
 }
 
 /* Completes a thread switch by activating the new thread's page
