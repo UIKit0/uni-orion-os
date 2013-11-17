@@ -63,7 +63,8 @@ static unsigned thread_ticks; /* # of timer ticks since last yield. */
 
 /* If false (default), use round-robin scheduler.
  If true, use multi-level feedback queue scheduler.
- Controlled by kernel command-line option "-o mlfqs". */bool thread_mlfqs;
+ Controlled by kernel command-line option "-o mlfqs". */
+bool thread_mlfqs;
 int64_t load_avg;
 int ready_mlfq_size;
 
@@ -302,10 +303,15 @@ void thread_recompute_load_avg (void)
 
 void thread_recompute_priority( struct thread *t, void* aux) {
 
-	t->recent_cpu =
-			fp_int_add( fp_div(  fp_mult(fp_int_mult(load_avg, 2), t->recent_cpu),
-							     fp_int_add(fp_int_mult(load_avg, 2), 1)),
-					    t->nice);
+	if(t == idle_thread)
+		return;
+	if(aux == 0) { //not sure about this condition - the ideea is that recent_cpu should not be recalculated
+				   //when priority is recomputed for crtthread
+	  t->recent_cpu =
+			fp_int_add( fp_mult(  fp_div(fp_int_mult(load_avg, 2), fp_int_add(fp_int_mult(load_avg, 2), 1)), //rewritten to avoid overflow
+								  t->recent_cpu),
+						    t->nice);
+	}
 
 
 	int newPriority = PRI_MAX - fp_to_int_rn( fp_int_div(t->recent_cpu, 4) ) - t->nice * 2;
@@ -546,8 +552,11 @@ static void init_thread(struct thread *t, const char *name, int priority) {
 	t->stack = (uint8_t *) t + PGSIZE;
 
 	if (thread_mlfqs) {
-		t->recent_cpu = fp_from_int(0);
-	    t->nice = 0;
+		//inherit recent_cpu and nice from parents if possible
+		struct thread* cthread = running_thread();
+		t->recent_cpu = cthread != NULL? cthread->recent_cpu : fp_from_int(0);
+	    t->nice = cthread != NULL? cthread->nice : 0;
+
 		thread_recompute_priority(t, 1);
 	}
 	else {

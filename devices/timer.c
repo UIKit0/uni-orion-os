@@ -162,6 +162,9 @@ static void timer_interrupt(struct intr_frame *args UNUSED) {
 			thread_recompute_load_avg();
 			thread_foreach(thread_recompute_priority, NULL);
 		}
+		else if (ticks % 4 == 0) {
+			thread_recompute_priority(cthread, 1);
+		}
 	}
 
 	ticks++;
