@@ -90,6 +90,7 @@ struct thread
     int priority;                       /* Priority. */
     int current_priority;		/* Can be either the fix priority or the priority inherited by donation. */
     struct list_elem allelem;           /* List element for all threads list. */
+    int64_t wakeup_time;					/* the time at which a sleeping thread should wake up */
 
     int nice;
     int64_t recent_cpu;
@@ -144,9 +145,13 @@ int thread_get_load_avg (void);
 
 void thread_recompute_priority( struct thread *t, void* aux);
 void thread_recompute_load_avg (void);
+int64_t thread_get_wakeup_time (void);
+void thread_sleep (int64_t);
 
 void thread_promote( struct thread* t );
 void thread_lessen(void);
+void handle_sleeping_threads(int64_t timer_ticks);
+list_less_func thread_wakeup_time_comparison;
 
 int thread_get_ready_threads(void);
 
