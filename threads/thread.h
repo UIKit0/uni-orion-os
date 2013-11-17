@@ -155,4 +155,6 @@ list_less_func thread_wakeup_time_comparison;
 
 int thread_get_ready_threads(void);
 
+bool current_thread_is_idle_thread(void);
+
 #endif /* threads/thread.h */

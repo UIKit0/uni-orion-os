@@ -154,22 +154,25 @@ void timer_print_stats(void) {
 /* Timer interrupt handler. */
 static void timer_interrupt(struct intr_frame *args UNUSED) {
 
+	ticks++;
+	handle_sleeping_threads(ticks);
+	thread_tick();
+
 	if (thread_mlfqs) {
 		struct thread * cthread = thread_current();
-		cthread->recent_cpu = fp_int_add(cthread->recent_cpu, 1);
+		if(current_thread_is_idle_thread() == 0) {
+			cthread->recent_cpu = fp_int_add(cthread->recent_cpu, 1);
+		}
 		if (ticks % TIMER_FREQ == 0) {
 			//each second we must recompute the recent CPU for all threads
 			thread_recompute_load_avg();
 			thread_foreach(thread_recompute_priority, NULL);
+
 		}
 		else if (ticks % 4 == 0) {
 			thread_recompute_priority(cthread, 1);
 		}
 	}
-
-	ticks++;
-  handle_sleeping_threads(ticks);
-	thread_tick();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

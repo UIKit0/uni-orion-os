@@ -305,6 +305,7 @@ void thread_recompute_priority( struct thread *t, void* aux) {
 
 	if(t == idle_thread)
 		return;
+
 	if(aux == 0) { //not sure about this condition - the ideea is that recent_cpu should not be recalculated
 				   //when priority is recomputed for crtthread
 	  t->recent_cpu =
@@ -720,6 +721,11 @@ void handle_sleeping_threads(int64_t timer_ticks)
 		thread_unblock( list_entry(it, struct thread, elem) );
 		it = next;
 	}
+}
+
+bool current_thread_is_idle_thread(void)
+{
+	return thread_current() == idle_thread;
 }
 
 
