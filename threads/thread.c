@@ -287,7 +287,6 @@ int thread_get_ready_threads(void) {
 	    }
 
 	return sz;
-	/**/
 }
 
 void thread_recompute_load_avg (void)
