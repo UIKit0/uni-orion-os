@@ -7,6 +7,8 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "lib/kernel/fixed_point.h"
+
 
 /* See [8254] for hardware details of the 8254 timer chip. */
 

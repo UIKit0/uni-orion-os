@@ -145,11 +145,11 @@ int thread_get_load_avg (void);
 
 void thread_recompute_priority( struct thread *t, void* aux);
 void thread_recompute_load_avg (void);
-int64_t thread_get_wakeup_time (void);
-void thread_sleep (int64_t);
 
 void thread_promote( struct thread* t );
 void thread_lessen(void);
+
+void thread_sleep (int64_t);
 void handle_sleeping_threads(int64_t timer_ticks);
 list_less_func thread_wakeup_time_comparison;
 

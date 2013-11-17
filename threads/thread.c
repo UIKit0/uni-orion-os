@@ -420,8 +420,7 @@ void thread_lessen(void)
 }
 
 /* Sets the current thread's nice value to NICE. */
-void thread_set_nice(int nice UNUSED) {
-thread_set_nice (int nice)
+void thread_set_nice(int nice)
 {
 	thread_current()->nice = nice;
 }
@@ -557,7 +556,7 @@ alloc_frame(struct thread *t, size_t size) {
  will be in the run queue.)  If the run queue is empty, return
  idle_thread. */
 static struct thread *
-next_thread_to_run(void) {
+next_thread_to_run(void)
 {  
      int priority = PRI_MAX;
      while ( priority >= 0 && list_empty( &ready_list[ priority ] ) )
