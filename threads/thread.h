@@ -141,8 +141,8 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void thread_promote(struct thread* t);
-void thread_lessen(void);
+void thread_demote(void);
 
-bool priority_less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+bool priority_great(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 #endif /* threads/thread.h */

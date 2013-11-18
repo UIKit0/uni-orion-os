@@ -248,12 +248,12 @@ void lock_release (struct lock *l)
     ASSERT(l != NULL);
     ASSERT(lock_held_by_current_thread(l));
 
-    thread_lessen();
+    thread_demote();
     l->holder = NULL;
 
     if (!list_empty(&l->waiters))
     {
-        list_sort(&l->waiters, priority_less, NULL);
+        list_sort(&l->waiters, priority_great, NULL);
         thread_unblock(list_entry(list_pop_front(&l->waiters), struct thread, elem));
     }
 }

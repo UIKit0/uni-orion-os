@@ -72,6 +72,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+static void thread_on_priority_change(struct thread* t, int old_priority, int new_priority);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -257,7 +258,7 @@ void thread_unblock (struct thread *t)
     t->status = THREAD_READY;
     intr_set_level (old_level);
 
-    if (t->current_priority > thread_current()->current_priority) 
+    if (t->current_priority > thread_current()->current_priority && thread_current() != idle_thread) 
     {
         thread_yield();
     }
@@ -355,17 +356,25 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-void
-thread_set_priority (int new_priority) 
+void thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+    struct thread* cur = thread_current();
+    int old_priority = cur->priority;
+
+    cur->priority = new_priority;
+
+    if (cur->current_priority == old_priority)
+    {
+        cur->current_priority = new_priority;
+        thread_on_priority_change(cur, old_priority, new_priority);
+        thread_yield();
+    }
 }
 
 /* Returns the current thread's priority. */
-int
-thread_get_priority (void) 
+int thread_get_priority (void) 
 {
-  return thread_current()->current_priority;
+    return thread_current()->current_priority;
 }
 
 /* Promotes a thread to current thread's priority */
@@ -377,30 +386,39 @@ void thread_promote(struct thread* t)
     if (old_priority < new_priority) 
     {
         t->current_priority = new_priority;
+        thread_on_priority_change(t, old_priority, new_priority);
+    }
+}
 
-        // move the thread to a new list;
-        if (t->status == THREAD_READY)
-        {
-            list_remove(&t->elem);
-            list_push_back(&ready_list[t->current_priority], &t->elem);
-        }
+/* Force current thread to it's default fixed priority  */
+void thread_demote(void)
+{
+    struct thread* cur = thread_current();
+    int old_priority = cur->current_priority;
+    int new_priority = cur->priority;
+
+    cur->current_priority = new_priority;
+    thread_on_priority_change(cur, old_priority, new_priority);
+}
+
+static void thread_on_priority_change(struct thread* t, int old_priority, int new_priority)
+{
+    // move the thread to a new ready list
+    if (t->status == THREAD_READY)
+    {
+        list_remove(&t->elem);
+        list_push_back(&ready_list[new_priority], &t->elem);
     }
 }
 
 /* Returns true if value A is less than value B, false
    otherwise. */
-bool priority_less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) 
+bool priority_great(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) 
 {
     const struct thread *ta = list_entry (a, struct thread, elem);
     const struct thread *tb = list_entry (b, struct thread, elem);
   
-    return ta->current_priority < tb->current_priority;
-}
-
-/* Force current thread to it's default fixed priority  */
-void thread_lessen(void)
-{
-    thread_current()->current_priority = thread_current()->priority;
+    return ta->current_priority > tb->current_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
