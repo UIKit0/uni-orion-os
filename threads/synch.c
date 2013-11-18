@@ -59,19 +59,19 @@ sema_init (struct semaphore *sema, unsigned value)
    thread will probably turn interrupts back on. */
 void sema_down (struct semaphore *sema) 
 {
-  enum intr_level old_level;
+    enum intr_level old_level;
 
-  ASSERT (sema != NULL);
-  ASSERT (!intr_context ());
+    ASSERT(sema != NULL);
+    ASSERT(!intr_context ());
 
-  old_level = intr_disable ();
-  while (sema->value == 0) 
+    old_level = intr_disable ();
+    while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
-      thread_block ();
+        list_push_back(&sema->waiters, &thread_current()->elem);
+        thread_block();
     }
-  sema->value--;
-  intr_set_level (old_level);
+    sema->value--;
+    intr_set_level (old_level);
 }
 
 /* Down or "P" operation on a semaphore, but only if the
@@ -104,22 +104,24 @@ sema_try_down (struct semaphore *sema)
    and wakes up one thread of those waiting for SEMA, if any.
 
    This function may be called from an interrupt handler. */
-void
-sema_up (struct semaphore *sema) 
+void sema_up (struct semaphore *sema) 
 {
-  enum intr_level old_level;
+    enum intr_level old_level;
 
-  ASSERT (sema != NULL);
+    ASSERT (sema != NULL);
 
-  old_level = intr_disable ();
-  if (!list_empty (&sema->waiters))
-  {
-	list_sort(&sema->waiters, priority_great, NULL);
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
-  }
-  sema->value++;
-  intr_set_level (old_level);
+    old_level = intr_disable ();
+
+    sema->value++;
+
+    if (!list_empty (&sema->waiters))
+    {
+        list_sort(&sema->waiters, priority_great, NULL);
+        struct thread *waiter = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
+        thread_unblock(waiter);
+    }
+
+    intr_set_level (old_level);
 }
 
 static void sema_test_helper (void *sema_);
