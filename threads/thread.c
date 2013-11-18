@@ -286,7 +286,7 @@ void thread_unblock (struct thread *t)
     t->status = THREAD_READY;
     intr_set_level (old_level);
 
-    if (t->current_priority > thread_current()->current_priority && thread_current() != idle_thread) 
+    if (!thread_mlfqs && t->current_priority > thread_current()->current_priority && thread_current() != idle_thread)
     {
         thread_yield();
     }
@@ -448,6 +448,9 @@ int thread_get_priority (void)
 /* Promotes a thread to current thread's priority */
 void thread_promote(struct thread* t)
 {
+	if(thread_mlfqs) {
+		return;
+	}
     int old_priority = t->current_priority;
     int new_priority = thread_current()->current_priority;
 
@@ -461,6 +464,9 @@ void thread_promote(struct thread* t)
 /* Force current thread to it's default fixed priority  */
 void thread_demote(void)
 {
+	if(thread_mlfqs) {
+		return;
+	}
     struct thread* cur = thread_current();
     int old_priority = cur->current_priority;
     int new_priority = cur->priority;

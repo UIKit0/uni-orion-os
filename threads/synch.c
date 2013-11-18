@@ -195,7 +195,7 @@ void lock_acquire (struct lock *l)
     while (l->holder != NULL) 
     {
         // priority donation
-        if (l->holder->current_priority < thread_current()->current_priority) 
+        if (!thread_mlfqs && l->holder->current_priority < thread_current()->current_priority)
         {
             l->bounty = thread_current()->current_priority;
             thread_promote(l->holder);
@@ -208,7 +208,6 @@ void lock_acquire (struct lock *l)
 
     // we have the lock
     list_push_back(&thread_current()->owned_locks,  &l->elem);
-    l->holder = thread_current();
 
     l->holder = thread_current();
 
@@ -250,7 +249,7 @@ void lock_release (struct lock *l)
     l->holder = NULL;
     list_remove(&l->elem);
 
-    if (thread_get_priority() == l->bounty) {
+    if (!thread_mlfqs && thread_get_priority() == l->bounty) {
         thread_demote();
     }
 
