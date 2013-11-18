@@ -32,6 +32,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+static bool sema_priority_great(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -320,18 +322,47 @@ cond_init (struct condition *cond)
 void
 cond_wait (struct condition *cond, struct lock *lock) 
 {
-  struct semaphore_elem waiter;
+      struct semaphore_elem waiter;
 
-  ASSERT (cond != NULL);
-  ASSERT (lock != NULL);
-  ASSERT (!intr_context ());
-  ASSERT (lock_held_by_current_thread (lock));
+      ASSERT (cond != NULL);
+      ASSERT (lock != NULL);
+      ASSERT (!intr_context ());
+      ASSERT (lock_held_by_current_thread (lock));
+      
+      sema_init (&waiter.semaphore, 0);
+      list_push_back (&cond->waiters, &waiter.elem);
+      lock_release (lock);
+      sema_down (&waiter.semaphore);
+      lock_acquire (lock);
+}
+
+/* Returns true if value A is less than value B, false
+   otherwise. */
+static bool sema_priority_great(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) 
+{
+    struct semaphore *sa = &list_entry(a, struct semaphore_elem, elem)->semaphore;
+    struct semaphore *sb = &list_entry(b, struct semaphore_elem, elem)->semaphore;
   
-  sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
-  lock_release (lock);
-  sema_down (&waiter.semaphore);
-  lock_acquire (lock);
+    int sa_bounty = 0;
+    int sb_bounty = 0;
+
+    struct list_elem *e;
+
+    for (e = list_begin(&sa->waiters); e != list_end(&sa->waiters); e = list_next(e)){
+        struct thread *t = list_entry(e, struct thread, elem);
+        if (t->current_priority > sa_bounty){
+            sa_bounty = t->current_priority;
+        }
+    }
+
+    for (e = list_begin(&sb->waiters); e != list_end(&sb->waiters); e = list_next(e)){
+        struct thread *t = list_entry (e, struct thread, elem);
+        if (t->current_priority > sb_bounty){
+            sb_bounty = t->current_priority;
+        }
+    }
+
+    return sa_bounty > sb_bounty;
 }
 
 /* If any threads are waiting on COND (protected by LOCK), then
@@ -341,20 +372,18 @@ cond_wait (struct condition *cond, struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to signal a condition variable within an
    interrupt handler. */
-void
-cond_signal (struct condition *cond, struct lock *lock UNUSED) 
+void cond_signal (struct condition *cond, struct lock *lock UNUSED) 
 {
-  ASSERT (cond != NULL);
-  ASSERT (lock != NULL);
-  ASSERT (!intr_context ());
-  ASSERT (lock_held_by_current_thread (lock));
+    ASSERT (cond != NULL);
+    ASSERT (lock != NULL);
+    ASSERT (!intr_context ());
+    ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters))
-  {
-	list_sort(&cond->waiters, priority_great, NULL);
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
-  }
+    if (!list_empty (&cond->waiters))
+    {
+        list_sort(&cond->waiters, sema_priority_great, NULL);
+        sema_up (&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore);
+    }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
