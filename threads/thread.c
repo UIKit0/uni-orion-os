@@ -419,6 +419,10 @@ static void thread_on_priority_change(struct thread* t, int old_priority, int ne
         list_remove(&t->elem);
         list_push_back(&ready_list[new_priority], &t->elem);
     }
+    else if(t->status == THREAD_BLOCKED){
+    	list_remove(&t->elem);
+    	thread_unblock(t);
+    }
 }
 
 /* Returns true if value A is less than value B, false
