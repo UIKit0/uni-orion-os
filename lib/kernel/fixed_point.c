@@ -50,7 +50,7 @@ int64_t fp_add(int64_t fp_x, int64_t fp_y)
  * returns the difference between two numbers
  * in fixed_point representation
  */
-int64_t fp_subtract(int64_t fp_x, int64_t fp_y)
+int64_t fp_sub(int64_t fp_x, int64_t fp_y)
 {
 	return fp_x - fp_y;
 }

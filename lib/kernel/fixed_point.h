@@ -18,7 +18,7 @@ int fp_to_int_rn(int64_t fp);
 
 int64_t fp_add(int64_t fp_x, int64_t fp_y);
 
-int64_t fp_subtract(int64_t fp_x, int64_t fp_y);
+int64_t fp_sub(int64_t fp_x, int64_t fp_y);
 
 int64_t fp_mult(int64_t fp_x, int64_t fp_y);
 

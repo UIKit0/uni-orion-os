@@ -1,30 +1,30 @@
 /* This file is derived from source code for the Nachos
-   instructional operating system.  The Nachos copyright notice
-   is reproduced in full below. */
+ instructional operating system.  The Nachos copyright notice
+ is reproduced in full below. */
 
 /* Copyright (c) 1992-1996 The Regents of the University of California.
-   All rights reserved.
+ All rights reserved.
 
-   Permission to use, copy, modify, and distribute this software
-   and its documentation for any purpose, without fee, and
-   without written agreement is hereby granted, provided that the
-   above copyright notice and the following two paragraphs appear
-   in all copies of this software.
+ Permission to use, copy, modify, and distribute this software
+ and its documentation for any purpose, without fee, and
+ without written agreement is hereby granted, provided that the
+ above copyright notice and the following two paragraphs appear
+ in all copies of this software.
 
-   IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO
-   ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR
-   CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OF THIS SOFTWARE
-   AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA
-   HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO
+ ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR
+ CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OF THIS SOFTWARE
+ AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA
+ HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-   THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY
-   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-   PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
-   BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-   PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
-   MODIFICATIONS.
-*/
+ THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY
+ WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
+ BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
+ PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
+ MODIFICATIONS.
+ */
 
 #include "threads/synch.h"
 #include <stdio.h>
@@ -35,21 +35,19 @@
 static bool sema_priority_great(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
-   nonnegative integer along with two atomic operators for
-   manipulating it:
+ nonnegative integer along with two atomic operators for
+ manipulating it:
 
-   - down or "P": wait for the value to become positive, then
-     decrement it.
+ - down or "P": wait for the value to become positive, then
+ decrement it.
 
-   - up or "V": increment the value (and wake up one waiting
-     thread, if any). */
-void
-sema_init (struct semaphore *sema, unsigned value) 
-{
-  ASSERT (sema != NULL);
+ - up or "V": increment the value (and wake up one waiting
+ thread, if any). */
+void sema_init(struct semaphore *sema, unsigned value) {
+	ASSERT(sema != NULL);
 
-  sema->value = value;
-  list_init (&sema->waiters);
+	sema->value = value;
+	list_init(&sema->waiters);
 }
 
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
@@ -77,29 +75,26 @@ void sema_down (struct semaphore *sema)
 }
 
 /* Down or "P" operation on a semaphore, but only if the
-   semaphore is not already 0.  Returns true if the semaphore is
-   decremented, false otherwise.
+ semaphore is not already 0.  Returns true if the semaphore is
+ decremented, false otherwise.
 
-   This function may be called from an interrupt handler. */
-bool
-sema_try_down (struct semaphore *sema) 
-{
-  enum intr_level old_level;
-  bool success;
+ This function may be called from an interrupt handler.
+ */
+bool sema_try_down(struct semaphore *sema) {
+	enum intr_level old_level;
+	bool success;
 
-  ASSERT (sema != NULL);
+	ASSERT(sema != NULL);
 
-  old_level = intr_disable ();
-  if (sema->value > 0) 
-    {
-      sema->value--;
-      success = true; 
-    }
-  else
-    success = false;
-  intr_set_level (old_level);
+	old_level = intr_disable();
+	if (sema->value > 0) {
+		sema->value--;
+		success = true;
+	} else
+		success = false;
+	intr_set_level(old_level);
 
-  return success;
+	return success;
 }
 
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
@@ -126,41 +121,35 @@ void sema_up (struct semaphore *sema)
     intr_set_level (old_level);
 }
 
-static void sema_test_helper (void *sema_);
+static void sema_test_helper(void *sema_);
 
 /* Self-test for semaphores that makes control "ping-pong"
-   between a pair of threads.  Insert calls to printf() to see
-   what's going on. */
-void
-sema_self_test (void) 
-{
-  struct semaphore sema[2];
-  int i;
+ between a pair of threads.  Insert calls to printf() to see
+ what's going on. */
+void sema_self_test(void) {
+	struct semaphore sema[2];
+	int i;
 
-  printf ("Testing semaphores...");
-  sema_init (&sema[0], 0);
-  sema_init (&sema[1], 0);
-  thread_create ("sema-test", PRI_DEFAULT, sema_test_helper, &sema);
-  for (i = 0; i < 10; i++) 
-    {
-      sema_up (&sema[0]);
-      sema_down (&sema[1]);
-    }
-  printf ("done.\n");
+	printf("Testing semaphores...");
+	sema_init(&sema[0], 0);
+	sema_init(&sema[1], 0);
+	thread_create("sema-test", PRI_DEFAULT, sema_test_helper, &sema);
+	for (i = 0; i < 10; i++) {
+		sema_up(&sema[0]);
+		sema_down(&sema[1]);
+	}
+	printf("done.\n");
 }
 
 /* Thread function used by sema_self_test(). */
-static void
-sema_test_helper (void *sema_) 
-{
-  struct semaphore *sema = sema_;
-  int i;
+static void sema_test_helper(void *sema_) {
+	struct semaphore *sema = sema_;
+	int i;
 
-  for (i = 0; i < 10; i++) 
-    {
-      sema_down (&sema[0]);
-      sema_up (&sema[1]);
-    }
+	for (i = 0; i < 10; i++) {
+		sema_down(&sema[0]);
+		sema_up(&sema[1]);
+	}
 }
 
 /* Initializes LOCK.  A lock can be held by at most a single
@@ -289,14 +278,12 @@ struct semaphore_elem
 };
 
 /* Initializes condition variable COND.  A condition variable
-   allows one piece of code to signal a condition and cooperating
-   code to receive the signal and act upon it. */
-void
-cond_init (struct condition *cond)
-{
-  ASSERT (cond != NULL);
+ allows one piece of code to signal a condition and cooperating
+ code to receive the signal and act upon it. */
+void cond_init(struct condition *cond) {
+	ASSERT(cond != NULL);
 
-  list_init (&cond->waiters);
+	list_init(&cond->waiters);
 }
 
 /* Atomically releases LOCK and waits for COND to be signaled by
@@ -387,17 +374,15 @@ void cond_signal (struct condition *cond, struct lock *lock UNUSED)
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
-   LOCK).  LOCK must be held before calling this function.
+ LOCK).  LOCK must be held before calling this function.
 
-   An interrupt handler cannot acquire a lock, so it does not
-   make sense to try to signal a condition variable within an
-   interrupt handler. */
-void
-cond_broadcast (struct condition *cond, struct lock *lock) 
-{
-  ASSERT (cond != NULL);
-  ASSERT (lock != NULL);
+ An interrupt handler cannot acquire a lock, so it does not
+ make sense to try to signal a condition variable within an
+ interrupt handler. */
+void cond_broadcast(struct condition *cond, struct lock *lock) {
+	ASSERT(cond != NULL);
+	ASSERT(lock != NULL);
 
-  while (!list_empty (&cond->waiters))
-    cond_signal (cond, lock);
+	while (!list_empty(&cond->waiters))
+		cond_signal(cond, lock);
 }
