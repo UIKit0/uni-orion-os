@@ -257,10 +257,10 @@ void thread_unblock (struct thread *t)
     t->status = THREAD_READY;
     intr_set_level (old_level);
 
-    // if (t->current_priority > thread_current()->current_priority) 
-    // {
-    //     thread_yield();
-    // }
+    if (t->current_priority > thread_current()->current_priority) 
+    {
+        thread_yield();
+    }
 }
 
 /* Returns the name of the running thread. */
@@ -626,6 +626,11 @@ static void schedule (void)
     if (cur != next)
     prev = switch_threads(cur, next);
     thread_schedule_tail(prev);
+
+    if (cur != next)
+    {
+        // printf("scheduled thread: %s\n", cur->name);
+    }
 }
 
 /* Returns a tid to use for a new thread. */

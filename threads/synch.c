@@ -197,7 +197,7 @@ void lock_acquire (struct lock *lock)
     int old_level = intr_disable();
 
 
-    while (lock->holder != NULL && lock->holder != thread_current()) 
+    while (lock->holder != NULL) 
     {
         // priority donation
         if (lock->holder->current_priority < &thread_current()->current_priority) 
