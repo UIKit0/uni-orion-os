@@ -176,8 +176,8 @@ void lock_init (struct lock *lock)
     ASSERT (lock != NULL);
 
     lock->holder = NULL;
-
     list_init (&lock->waiters);
+    lock->bounty = 0;
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -188,31 +188,36 @@ void lock_init (struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-void lock_acquire (struct lock *lock)
+void lock_acquire (struct lock *l)
 {
-    ASSERT(lock != NULL);
+    ASSERT(l != NULL);
     ASSERT(!intr_context());
-    ASSERT(!lock_held_by_current_thread(lock));
+    ASSERT(!lock_held_by_current_thread(l));
 
     int old_level = intr_disable();
 
-
-    while (lock->holder != NULL) 
+    while (l->holder != NULL) 
     {
         // priority donation
-        if (lock->holder->current_priority < &thread_current()->current_priority) 
+        if (l->holder->current_priority < thread_current()->current_priority) 
         {
-            thread_promote(lock->holder);
+            l->bounty = thread_current()->current_priority;
+            thread_promote(l->holder);
         }
 
         // block the thread
-        list_push_back(&lock->waiters, &thread_current()->elem);
+        list_push_back(&l->waiters, &thread_current()->elem);
         thread_block();
     }
 
+    // we have the lock
+    list_push_back(
+        &thread_current()->owned_locks, 
+        &l->elem);
+
     intr_set_level(old_level);
 
-    lock->holder = thread_current();
+    l->holder = thread_current();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -248,8 +253,13 @@ void lock_release (struct lock *l)
     ASSERT(l != NULL);
     ASSERT(lock_held_by_current_thread(l));
 
-    thread_demote();
+    // the thread no longer holds the lock
     l->holder = NULL;
+    list_remove(&l->elem);
+
+    if (thread_get_priority() == l->bounty) {
+        thread_demote();
+    }
 
     if (!list_empty(&l->waiters))
     {

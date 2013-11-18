@@ -365,6 +365,7 @@ void thread_set_priority (int new_priority)
 
     if (cur->current_priority == old_priority)
     {
+        //printf("[kernel] setting current priority from %d to %d.\n", cur->current_priority, new_priority);
         cur->current_priority = new_priority;
         thread_on_priority_change(cur, old_priority, new_priority);
         thread_yield();
@@ -396,6 +397,15 @@ void thread_demote(void)
     struct thread* cur = thread_current();
     int old_priority = cur->current_priority;
     int new_priority = cur->priority;
+
+    struct list_elem *e;
+    for (e = list_begin (&cur->owned_locks); e != list_end (&cur->owned_locks); e = list_next (e)){
+        struct lock *l = list_entry (e, struct lock, elem);
+        if (l->bounty > new_priority) {
+            new_priority = l->bounty;
+        }
+    }
+    //printf("[kernel] demoting current thread from %d to %d\n", old_priority, new_priority);
 
     cur->current_priority = new_priority;
     thread_on_priority_change(cur, old_priority, new_priority);
@@ -540,6 +550,8 @@ init_thread (struct thread *t, const char *name, int priority)
 
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
+
+  list_init(&t->owned_locks);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
