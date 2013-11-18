@@ -114,7 +114,7 @@ void sema_up (struct semaphore *sema)
     if (!list_empty (&sema->waiters))
     {
         list_sort(&sema->waiters, priority_great, NULL);
-        struct thread *waiter = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
+        volatile struct thread *waiter = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
         thread_unblock(waiter);
     }
 
@@ -252,6 +252,8 @@ void lock_release (struct lock *l)
     if (!thread_mlfqs && thread_get_priority() == l->bounty) {
         thread_demote();
     }
+
+    l->bounty = 0;
 
     if (!list_empty(&l->waiters))
     {

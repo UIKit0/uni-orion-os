@@ -8,3 +8,5 @@ tags
 .project
 .svn/
 .svn
+bochs
+threads/core
