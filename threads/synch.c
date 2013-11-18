@@ -242,10 +242,13 @@ bool lock_try_acquire (struct lock *lock)
    handler. */
 void lock_release (struct lock *l) 
 {
+	enum intr_level old_level;
+
     ASSERT(l != NULL);
     ASSERT(lock_held_by_current_thread(l));
 
     // the thread no longer holds the lock
+    old_level = intr_disable();
     l->holder = NULL;
     list_remove(&l->elem);
 
@@ -260,6 +263,7 @@ void lock_release (struct lock *l)
         list_sort(&l->waiters, priority_great, NULL);
         thread_unblock(list_entry(list_pop_front(&l->waiters), struct thread, elem));
     }
+    intr_set_level(old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false
