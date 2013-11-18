@@ -214,15 +214,12 @@ void lock_acquire (struct lock *l)
     }
 
     // we have the lock
-    list_push_back(
-        &thread_current()->owned_locks, 
-        &l->elem);
+    list_push_back(&thread_current()->owned_locks,  &l->elem);
+    l->holder = thread_current();
 
     l->holder = thread_current();
 
     intr_set_level(old_level);
-
-
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
