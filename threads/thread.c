@@ -435,12 +435,6 @@ void thread_promote(struct thread* t)
   t->current_priority = thread_current ()->current_priority;
 }
 
-/* Sets the current thread's nice value to NICE. */
-void thread_set_nice(int nice)
-{
-	thread_current()->nice = nice;
-}
-
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
