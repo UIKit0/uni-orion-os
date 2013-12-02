@@ -8,7 +8,7 @@
 
 \title{The Design of \OSName{} Operating System}
 
-\author{Students' Name}
+\author{Pană, A., Soucup A., Vultur H., Zene, A. }
 
 \onehalfspacing
 
@@ -31,35 +31,33 @@
 
 \section{Working Team}
 
-Specify the working team members' names and their responsibility.
-
 \begin{enumerate}
 	\item Pană Alexandru
 	    \begin{enumerate}
-	     \item Threads: dealt with AAA
-	     \item Threads: dealt with BBB
-	     \item Threads: dealt with CCC
+	     \item Threads: dealt with designing
+	     \item Threads: dealt with synchronisation mechanisms implementation \& priority donation
+	     \item Threads: dealt with file system syscalls
 	    \end{enumerate}
 
 	\item Soucup Adrian
 	    \begin{enumerate}
-	     \item Threads: dealt with AAA
-	     \item Threads: dealt with BBB
-	     \item Threads: dealt with CCC
+	     \item Threads: dealt with designing
+	     \item Threads: dealt with advanced scheduler
+	     \item Threads: dealt with wait syscall
 	    \end{enumerate}
 	    
 	\item Vultur Horațiu
 	    \begin{enumerate}
-	     \item Threads: dealt with AAA
-	     \item Threads: dealt with BBB
-	     \item Threads: dealt with CCC
+	     \item Threads: dealt with designing
+	     \item Threads: dealt with priority scheduler
+	     \item Threads: dealt with argument passing, process termination messages \& exec syscall
 	    \end{enumerate}
 
 	\item Zene Andrei
 	    \begin{enumerate}
-	     \item Threads: dealt with AAA
-	     \item Threads: dealt with BBB
-	     \item Threads: dealt with CCC
+	     \item Threads: dealt with designing
+	     \item Threads: dealt with alarm clock \& fixed-point arithmetic
+	     \item Threads: dealt with exit syscall, process data structures \& denying writes to executables
 	    \end{enumerate}
 	   
 \end{enumerate}
@@ -74,7 +72,7 @@ Specify the working team members' names and their responsibility.
 \input{os-module-2-design}
 
 
-\input{os-module-3-design}
+% \input{os-module-3-design}
 
 
 \end{document}

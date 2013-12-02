@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-1.40.10 (TeX Live 2009/Debian) (format=pdflatex 2012.5.10)  2 NOV 2013 21:14
+This is pdfTeX, Version 3.1415926-1.40.10 (TeX Live 2009/Debian) (format=pdflatex 2012.5.10)  2 DEC 2013 23:08
 entering extended mode
  %&-line parsing enabled.
 **os-design.tex
@@ -718,7 +718,10 @@ LaTeX Info: Redefining \pageref on input line 15.
 
 \AtBeginShipoutBox=\box41
 \c@lstlisting=\count155
- [1
+ (/usr/share/texmf-texlive/tex/latex/ucs/data/uni-1.def
+File: uni-1.def 2004/10/17 UCS: Unicode data U+0100..U+01FF
+)
+[1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]pdfTeX warning (ext4): dest
 ination with the same identifier (name{page.1}) has been already used, duplicat
@@ -728,93 +731,169 @@ e ignored
 l.27 \end{abstract}
                     [1]
 Chapter 1.
-(/usr/share/texmf-texlive/tex/latex/ucs/data/uni-1.def
-File: uni-1.def 2004/10/17 UCS: Unicode data U+0100..U+01FF
-)
 (/usr/share/texmf-texlive/tex/latex/ucs/data/uni-2.def
 File: uni-2.def 2004/10/17 UCS: Unicode data U+0200..U+02FF
 )pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has
  been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.62 	     \item T
-                  hreads: dealt with CCC [1
+l.59 	     \item T
+                  hreads: dealt with alarm clock \& fixed-point arithmetic
+[1
 
 ] (./os-module-1-design.tex [2]
 Chapter 2.
-LaTeX Font Info:    Try loading font information for T1+cmtt on input line 13.
+LaTeX Font Info:    Try loading font information for T1+cmtt on input line 12.
 (/usr/share/texmf-texlive/tex/latex/base/t1cmtt.fd
 File: t1cmtt.fd 1999/05/25 v2.5h Standard LaTeX font definitions
 )
 LaTeX Font Info:    Font shape `T1/cmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/cmtt/m/n' tried instead on input line 14.
+(Font)              Font shape `T1/cmtt/m/n' tried instead on input line 15.
  [3
 
 ]
-<figures/sample-image.pdf, id=158, 364.56201pt x 134.10101pt>
-File: figures/sample-image.pdf Graphic file (type pdf)
+Underfull \vbox (badness 5578) has occurred while \output is active []
 
-<use figures/sample-image.pdf>
+ [4]
+Underfull \hbox (badness 10000) in paragraph at lines 102--103
 
-LaTeX Warning: `h' float specifier changed to `ht'.
+ []
 
-LaTeX Font Info:    Try loading font information for T1+cmss on input line 65.
-(/usr/share/texmf-texlive/tex/latex/base/t1cmss.fd
+[5] [6]
+Overfull \hbox (3.8258pt too wide) in paragraph at lines 151--152
+[][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (3.8258pt too wide) in paragraph at lines 158--159
+[][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [7]
+Overfull \hbox (17.406pt too wide) in paragraph at lines 171--172
+[][][][][][][][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (51.3565pt too wide) in paragraph at lines 173--174
+[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (17.406pt too wide) in paragraph at lines 176--177
+[][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (24.1961pt too wide) in paragraph at lines 180--182
+[][][][][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (17.406pt too wide) in paragraph at lines 182--183
+[][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (3.8258pt too wide) in paragraph at lines 183--184
+[][][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (17.406pt too wide) in paragraph at lines 188--189
+[][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (10.6159pt too wide) in paragraph at lines 189--190
+[][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (24.1961pt too wide) in paragraph at lines 190--191
+[][][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Underfull \vbox (badness 1275) has occurred while \output is active []
+
+ [8]
+Overfull \hbox (15.6673pt too wide) in paragraph at lines 244--245
+\T1/cmr/m/n/12 alarm-priority, priority-change, priority-condvar, priority-dona
+te-chain, priority-
+ []
+
+[9]
+Overfull \hbox (10.6159pt too wide) in paragraph at lines 278--280
+[][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+
+Overfull \hbox (3.8258pt too wide) in paragraph at lines 282--283
+[][][][][][][][][][][][][][][][] 
+ []
+
+[10]
+LaTeX Font Info:    Try loading font information for T1+cmss on input line 311.
+
+ (/usr/share/texmf-texlive/tex/latex/base/t1cmss.fd
 File: t1cmss.fd 1999/05/25 v2.5h Standard LaTeX font definitions
-) [4]
-Underfull \vbox (badness 1057) has occurred while \output is active []
+) [11]
+LaTeX Font Info:    Try loading font information for OMS+cmr on input line 337.
 
- [5 <./figures/sample-image.pdf>]
-LaTeX Font Info:    Try loading font information for OMS+cmr on input line 97.
- (/usr/share/texmf-texlive/tex/latex/base/omscmr.fd
+
+(/usr/share/texmf-texlive/tex/latex/base/omscmr.fd
 File: omscmr.fd 1999/05/25 v2.5h Standard LaTeX font definitions
 )
 LaTeX Font Info:    Font shape `OMS/cmr/m/n' in size <12> not available
-(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 97.
-)
-(./os-module-2-design.tex [6]
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 337.
+
+Overfull \hbox (34.20187pt too wide) in paragraph at lines 343--344
+\T1/cmr/m/n/12 edit-ing the func-tions thread_yield(), thread_unblock() and nex
+t_thread_to_run()
+ []
+
+[12]) (./os-module-2-design.tex [13]
 Chapter 3.
 
-Underfull \vbox (badness 1158) has occurred while \output is active []
+Overfull \hbox (2.60681pt too wide) in paragraph at lines 5--5
+[]\T1/cmr/bx/n/17.28 Process Ter-mi-na-tion Mes-sages & Ar-gu-ment
+ []
 
- [7
+[14
 
-])
-(./os-module-3-design.tex [8]
-Chapter 4.
-
-Underfull \vbox (badness 1158) has occurred while \output is active []
-
- [9
-
-])
-[10] (./os-design.aux) ) 
+] [15] [16]) [17] [18] (./os-design.aux) ) 
 Here is how much of TeX's memory you used:
- 16717 strings out of 495061
- 253892 string characters out of 1182621
- 362037 words of memory out of 3000000
- 19434 multiletter control sequences out of 15000+50000
- 25595 words of font info for 72 fonts, out of 3000000 for 9000
+ 16967 strings out of 495061
+ 257638 string characters out of 1182621
+ 378037 words of memory out of 3000000
+ 19527 multiletter control sequences out of 15000+50000
+ 27134 words of font info for 74 fonts, out of 3000000 for 9000
  28 hyphenation exceptions out of 8191
- 43i,7n,49p,465b,1894s stack positions out of 5000i,500n,10000p,200000b,50000s
- </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/e
-css1200.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecit1095.60
-0pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ectt1095.600pk> </hom
-e/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecti1200.600pk> </home/andrei/.
-texmf-var/fonts/pk/ljfour/jknappen/ec/ecbi2488.600pk> </home/andrei/.texmf-var/
-fonts/pk/ljfour/jknappen/ec/ecrm0600.600pk> </home/andrei/.texmf-var/fonts/pk/l
-jfour/jknappen/ec/ecbx1728.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jkna
-ppen/ec/ecbx2488.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ec
-rm1200.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecbx1200.600
-pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecrm1440.600pk> </home
-/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecti2074.600pk> </home/andrei/.t
-exmf-var/fonts/pk/ljfour/jknappen/ec/ecrm2074.600pk></usr/share/texmf-texlive/f
-onts/type1/public/amsfonts/cm/cmmi12.pfb></usr/share/texmf-texlive/fonts/type1/
-public/amsfonts/cm/cmr12.pfb></usr/share/texmf-texlive/fonts/type1/public/amsfo
-nts/cm/cmsy10.pfb>
-Output written on os-design.pdf (12 pages, 190496 bytes).
+ 43i,7n,49p,1414b,1918s stack positions out of 5000i,500n,10000p,200000b,50000s
+ </home/andrei/.texmf-var/fonts/pk/lj
+four/jknappen/ec/ecss1200.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknap
+pen/ec/ecit1095.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ect
+t1095.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecti1200.600p
+k> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecbx1440.600pk> </home/
+andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecbi2488.600pk> </home/andrei/.te
+xmf-var/fonts/pk/ljfour/jknappen/ec/ecrm0600.600pk> </home/andrei/.texmf-var/fo
+nts/pk/ljfour/jknappen/ec/ecbx1728.600pk> </home/andrei/.texmf-var/fonts/pk/ljf
+our/jknappen/ec/ecbx2488.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknapp
+en/ec/ecrm1200.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecbx
+1200.600pk> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecrm1440.600pk
+> </home/andrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecti2074.600pk> </home/a
+ndrei/.texmf-var/fonts/pk/ljfour/jknappen/ec/ecrm2074.600pk></usr/share/texmf-t
+exlive/fonts/type1/public/amsfonts/cm/cmmi12.pfb></usr/share/texmf-texlive/font
+s/type1/public/amsfonts/cm/cmmi8.pfb></usr/share/texmf-texlive/fonts/type1/publ
+ic/amsfonts/cm/cmr12.pfb></usr/share/texmf-texlive/fonts/type1/public/amsfonts/
+cm/cmsy10.pfb>
+Output written on os-design.pdf (20 pages, 273509 bytes).
 PDF statistics:
- 613 PDF objects out of 1000 (max. 8388607)
- 100 named destinations out of 1000 (max. 500000)
- 202 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 974 PDF objects out of 1000 (max. 8388607)
+ 260 named destinations out of 1000 (max. 500000)
+ 333 words of extra memory for PDF output out of 10000 (max. 10000000)
 
