@@ -12,10 +12,12 @@
 
     \begin{lstlisting}
 
-      "In ... :"
+      "In thread.h :"
 	
-	struct structure_def {
-	    type field;
+	struct thread {
+	    /* The process id to which the thread
+	       belongs to. */
+	       int pid;
 	};
 
 	/* comments */
@@ -83,23 +85,67 @@
 
     \subsection{Initial Functionality}
 
-	At the beginning of this project ... .
+	At the beginning of this project the pintOS does not provide the posibility of calling system calls from the user interface. Besides this, there is no data structure to support processes. We want to implement the data structures to support processes and filesystem syscalls and the syscalls that will allow user programs to use this functionality.
 
     \subsection{Data Structures and Functions}
 
     \begin{lstlisting}
 
-      "In ... :"
-	
-	struct structure_def {
-	    type field;
-	};
+    "In process.h :"
+      
+      /* maximum number of processes running at the same 
+      time. May need some adjustments. */
+      #define MAX_PROCESSES 1024
 
-	/* comments */
-	variable definition;
+      /* possible states of a process. 
+	  ALIVE  is a process that has still not finished 
+		 it's execution. 
+	  KILLED is a process killed by the kernel.
+	  DEAD 	 is a process that was killed at user's 
+		 request by calling exit. */
+      enum process_status_type {ALIVE, KILLED, DEAD}
 
-	/* comments */
-	function definition;
+      struct process {
+	  /* pid (process id) of this process's parent */
+	  int ppid;				
+	  
+	  /* status of the process: one of ALIVE, KILLED, 
+	     DEAD. */
+	  process_status_type status;
+      
+	  /* the code returned by the process at exit */
+	  int exit_code;
+
+	  /* The thread that is waiting after this thread. */
+	  struct thread* waiting_thread;
+
+	  /* In construction ... Come back soon! */
+	  void *etc;
+      };
+
+      "In process.c: "
+
+      /* The processes table */
+      static struct processes_table[MAX_PROCESSES];
+
+      "In userprog/syscalls.h: (kernel side)"
+      
+      /* synchronisation lock in order to execute
+	 only one syscall at a time */
+      static struct lock syscall_lock;
+
+      /* Reads a byte at user virtual address UADDR.
+	UADDR must be below PHYS_BASE.
+	Returns the byte value if successful, -1 if a 
+	segfault occurred. 
+	PROBLEM!!! WHAT HAPPENS IF BYTE AT UADDR IS -1?*/
+      static int get_user (const uint8_t *uaddr);
+
+      /* Writes BYTE to user address UDST.
+	 UDST must be below PHYS_BASE.
+	 Returns true if successful, false if a segfault 
+	 occurred. */
+      static bool put_user (uint8_t *udst, uint8_t byte);
 
     \end{lstlisting}
 
@@ -107,6 +153,19 @@
     \subsection{Functionality}
 
 	Function x works like this ... : (picture with sequence diagram or algorithm. See commented examples for including images or describing algorithms below)
+
+	\textbf{Exit sycall}
+	  \begin{program}
+	    syscall\_lock.aquire();
+	    proc\_crt = processes\_table[current\_thread.pid];
+	    proc\_crt.exit\_code = status;
+	    thread\_exit();
+	    proc\_crt.status = DEAD;
+	    \IF proc\_crt.waiting\_thread != NULL 
+	      \THEN sycall\_lock.release(); 
+	      thread\_unblock(proc\_crt.waiting_thread); 
+	    \FI
+	  \end{program}
 
     %\begin{figure}[h]
     %	\centering

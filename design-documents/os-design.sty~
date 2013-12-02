@@ -16,7 +16,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{tikz}
 % \usepackage{colortbl}
-\usepackage{yfonts}
+%\usepackage{yfonts}
 
 \usepackage{amssymb,amsmath}
 \usepackage{amsthm}
@@ -39,6 +39,7 @@
 % \SetAlFnt{\small}
 
 \usepackage{program}
+\usepackage{algorithm2e}
 
 \usepackage{verbatim}
 
