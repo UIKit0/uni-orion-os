@@ -1,4 +1,3 @@
-
 \chapter{Design of Module \textit{threads}}
 
 \section{Alarm clock}
@@ -341,6 +340,5 @@
 
     \subsection{Design Decisions}
 We chose the vector of queues because of O(1) constant time retrieval and insertion. This means that the scheduler will run with the same speed regardless of the numbers of threads that are currently in the system. The choice of editing the functions thread\_yield(), thread\_unblock() and next\_thread\_to\_run() is good because all the synchronization mechanisms and sleeps already depend on them so we don't need to worry about how they are implemented.
-
     \subsection{Tests}
 	mlfqs-block, mlfqs-fair, mlfqs-load-1, mlfqs-load-60 mlfqs-load-avg, mlfqs-recent-1
