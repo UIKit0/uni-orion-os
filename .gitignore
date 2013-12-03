@@ -4,6 +4,9 @@ TAGS
 tags
 *.o
 .o
+*.log
+*.aux
+*.out
 .cproject
 .project
 .svn/
