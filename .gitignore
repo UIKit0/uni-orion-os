@@ -7,6 +7,7 @@ tags
 *.log
 *.aux
 *.out
+*~
 .cproject
 .project
 .svn/
