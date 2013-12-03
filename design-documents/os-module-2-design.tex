@@ -5,7 +5,10 @@
 
     \subsection{Initial Functionality}
 
-	At the beginning of this project ... .
+	At the beginning of this project the function 
+{\textit{process\_execute()} doesn't support argument
+passing. We want to implement so that the function can
+have arguments.
 
     \subsection{Data Structures and Functions}
 
@@ -19,66 +22,93 @@
 	       int pid;
 	};
 
-	/* comments */
-	variable definition;
+	"In process.h / process.c"
 
-	/* comments */
-	function definition;
+	/* this function return the first substring 
+	of the parameter */
+	char* firstSubstring( const char* arg, const char delimitator );
+
+	/* this function will add the parameter on the stack.
+	First the value are passed in any order. After that will 
+	set to the corect aligment, and then pass the address of
+	the arguments in reverse order and the number of the arguments.*/
+	void passArguments( const char* arg, void* esp );
 
     \end{lstlisting}
 
 
     \subsection{Functionality}
 
-	Function x works like this ... : (picture with sequence diagram or algorithm. See commented examples for including images or describing algorithms below)
+	  Every time when a process is created the method
+    \textit{process\_execute} is called. Will have as paramter
+    the arguments for the new process.The first substring will
+    be the name of the process.
+	  We get the first parameter of the argument and 
+    set it as the name of the thread that will be created. The
+    initialization of the new thread will be in the other process.
 
-    %\begin{figure}[h]
-    %	\centering
-    %	\includegraphics[width=0.5\textwidth]{figures/sample-image.pdf}
-    %	\caption{Sample image}
-    %	\label{fig:sample-image}
-    %\end{figure}
-
+	  The function passArguments has the following pseudocode
 
     %Here you have a pseudo-code description of an algorithm taken fom \\ \href{http://en.wikibooks.org/wiki/LaTeX/Algorithms\_and\_Pseudocode\#Typesetting\_using\_the\_program\_package}{http://en.wikibooks.org/wiki/LaTeX}. It uses the \textit{program} package. Alternatively, you can use \textit{algorithmic} or \textit{algorithm2e} packages. 
 
-    %\begin{program}
+    \begin{program}
     %\mbox{Example of a pseudo-code algorithm description:}
-    %\BEGIN %
+    \BEGIN %
     %  \FOR i:=1 \TO 10 \STEP 1 \DO
     %     |expt|(2,i); \\ |newline|() \OD %
     %\rcomment{This text will be set flush to the right margin}
     %\WHERE
-    %\PROC |expt|(x,n) \BODY
-    %          z:=1;
-    %          \DO \IF n=0 \THEN \EXIT \FI;
-    %             \DO \IF |odd|(n) \THEN \EXIT \FI;
-    %\COMMENT{This is a comment statement};
-    %                n:=n/2; x:=x*x \OD;
-    %             \{ n>0 \};
-    %             n:=n-1; z:=z*x \OD;
-    %          |print|(z) \ENDPROC
-    %\END
-    %\end{program}
+    \PROC |passArguments|(x,s) \BODY
+              \DO
+	      token := strtok_k( x );
+	      \IF token= null \THEN \EXIT \FI;
+                 \ELSE push( s, token )   
+	      \OD
+	      |alligment|(s)
+              \FOR i:= 1 \TO numberOfParameters \STEP 1 \DO
+		pushAddress( s ) \OD
+     \ENDPROC
+    \END
+    \end{program}
 
 
     \subsection{Design Decisions}
 
-	This solution has the advantage that ... 
-
-	On the other hand it is not so good that ... . 
-
-	A better solution would be ... . 
-
-	However, this solution is better than ...
+	This solution has one advantage. The arguments are 
+     deduce by the child process. Because we tokenaize the 
+     parameter in the method \textit{start\_process} which 
+     will be called by the child process. If we had done 
+     this in the method \textit{process\_execute} then the 
+     tokenaize was made by the parent process and the child
+     process, doesn't process his own resources.
 
     \subsection{Tests}
 
-    \textbf{name of the test}\\
-    \textit{Source:} path/to/test.c\\
-    \textit{Purpose:} What does it check?\\
-    \textit{Description:} Short description.
-    \textit{Solution:(if necessary)} Here, if what the test does is something that was not explicitly asked in the requirements, it would be good to say that we already treat that situation and where. If it's something that should be solved only by the implementation of the requirements you can say: Solved by requirements fulfillment.
+
+      \textbf{args-dbl-space.ck}\\
+      \textit{Source:} tests/userprog/args-dbl-space.ck\\
+      \textit{Purpose:} Checks if there are double spaces 
+	  in the argument list.
+
+
+      \textbf{args-many.ck}\\
+      \textit{Source:} tests/userprog/args-many.ck\\
+      \textit{Purpose:} Checks if there can be any number of arguments. 
+	  The number is greater then 9.
+
+    \textbf{args-multiple.ck} \\
+    \textit{Source:} tests/userprog/args-multiple.ck\\
+    \textit{Purpose:} Checks if there are some arguments in 
+	  the argument list.
+
+    \textbf{args-none.ck}\\
+    \textit{Source:} tests/userprog/args-none.ck\\
+    \textit{Purpose:} Checks if there are 0 arguments.
+
+    \textbf{args-single.ck}\\
+    \textit{Source:} tests/userprog/args-single.ck\\
+    \textit{Purpose:} Checks if there is only one argument.\\
+    \textit{Description:}
     
 \section{System calls}
 
