@@ -4,6 +4,7 @@ TAGS
 tags
 *.o
 .o
+*.gz
 *.log
 *.aux
 *.out
