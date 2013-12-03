@@ -314,13 +314,19 @@ process_wait (pid_t child_pid)
 
     \subsection{Tests}
 
-    \textbf{name of the test}\\
-    \textit{Source:} path/to/test.c\\
-    \textit{Purpose:} What does it check?\\
-    \textit{Description:} Short description.
-    \textit{Solution:(if necessary)} Here, if what the test does is something that was not explicitly asked in the requirements, it would be good to say that we already treat that situation and where. If it's something that should be solved only by the implementation of the requirements you can say: Solved by requirements fulfillment.
-	
+    \textbf{wait-twice}\\
+      \textit{Source:} tests/userprog/wait-twice\\
+      \textit{Purpose:} Checks what happens when we wait twice for the same child process
 
+
+      \textbf{wait-simple}\\
+      \textit{Source:} tests/userprog/wait-simple\\
+      \textit{Purpose:} Waits for a child process and checks the exit code
+
+    \textbf{wait-bad-pid} \\
+    \textit{Source:} tests/userprog/wait-bad-pid\\
+    \textit{Purpose:} Waits for a random pid, that may not be in the process table at all. The wait function should return -1 without waiting.
+    
 \section{Denying writes to executables}
 
      \subsection{Initial Functionality}
