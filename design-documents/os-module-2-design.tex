@@ -319,97 +319,76 @@ process_wait (pid_t child_pid)
 
     \subsection{Design Decisions}
 
-	This solution has the advantage that ... 
-
-	On the other hand it is not so good that ... . 
-
-	A better solution would be ... . 
-
-	However, this solution is better than ...
+	We choose to validate addresses that come from user space taking advantage of the MMU architecture. Other said, we try to access the memory and if the cpu generates a page fault exception we treat it and close the program if necessary. The advantage of this solution is that it is faster.On the other hand this solution is a little bit more complex than the solution in which we check each address manually.
 
     \subsection{Tests}
 
-    \textbf{wait-twice}\\
+      \textbf{wait-twice}\\
       \textit{Source:} tests/userprog/wait-twice\\
       \textit{Purpose:} Checks what happens when we wait twice for the same child process
-
 
       \textbf{wait-simple}\\
       \textit{Source:} tests/userprog/wait-simple\\
       \textit{Purpose:} Waits for a child process and checks the exit code
 
-    \textbf{wait-bad-pid} \\
-    \textit{Source:} tests/userprog/wait-bad-pid\\
-    \textit{Purpose:} Waits for a random pid, that may not be in the process table at all. The wait function should return -1 without waiting.
+      \textbf{wait-bad-pid} \\
+      \textit{Source:} tests/userprog/wait-bad-pid\\
+      \textit{Purpose:} Waits for a random pid, that may not be in the process table at all. The wait function should return -1 without waiting.
     
 \section{Denying writes to executables}
 
      \subsection{Initial Functionality}
 
-	At the beginning of this project ... .
+	At the beginning of this project it is possible to modify an executable file while it is loaded into memory. Because this can lead to unpredictable results, we want to deny this possibility to users.
 
     \subsection{Data Structures and Functions}
 
     \begin{lstlisting}
 
-      "In ... :"
+      "In process.c :"
 	
-	struct structure_def {
-	    type field;
-	};
-
-	/* comments */
-	variable definition;
-
-	/* comments */
-	function definition;
+	struct process_t {
+	    ...
+	    /* a reference to the file structure of 
+	       the executable file */
+	    struct file *exec_file;
+	    ...
+	}
 
     \end{lstlisting}
 
 
     \subsection{Functionality}
+   \begin{lstlisting}
 
-	
+	bool
+	load (const char *file_name, void (**eip) (void), void **esp) 
+	{
+	  ...
+	   /* Open executable file. */
+	  file = filesys_open (file_name);
+	  if (file == NULL) 
+	  {
+	    printf ("load: %s: open failed\n", file_name);
+	    goto done; 
+	  }
+	  file_deny_write(file);
+	  ...
+	}
 
-    %\begin{figure}[h]
-    %	\centering
-    %	\includegraphics[width=0.5\textwidth]{figures/sample-image.pdf}
-    %	\caption{Sample image}
-    %	\label{fig:sample-image}
-    %\end{figure}
+	process_exit() {
+	  ...
+	  close_file_handles();
+	  file_allow_write(crt_proc.exec_file);
+	  ...
+	}	
+    \end{lstlisting}
 
-
-    %Here you have a pseudo-code description of an algorithm taken fom \\ \href{http://en.wikibooks.org/wiki/LaTeX/Algorithms\_and\_Pseudocode\#Typesetting\_using\_the\_program\_package}{http://en.wikibooks.org/wiki/LaTeX}. It uses the \textit{program} package. Alternatively, you can use \textit{algorithmic} or \textit{algorithm2e} packages. 
-
-    %\begin{program}
-    %\mbox{Example of a pseudo-code algorithm description:}
-    %\BEGIN %
-    %  \FOR i:=1 \TO 10 \STEP 1 \DO
-    %     |expt|(2,i); \\ |newline|() \OD %
-    %\rcomment{This text will be set flush to the right margin}
-    %\WHERE
-    %\PROC |expt|(x,n) \BODY
-    %          z:=1;
-    %          \DO \IF n=0 \THEN \EXIT \FI;
-    %             \DO \IF |odd|(n) \THEN \EXIT \FI;
-    %\COMMENT{This is a comment statement};
-    %                n:=n/2; x:=x*x \OD;
-    %             \{ n>0 \};
-    %             n:=n-1; z:=z*x \OD;
-    %          |print|(z) \ENDPROC
-    %\END
-    %\end{program}
-
+    Trying to write in a file after calling file_deny_write, will result in writing 0 bytes (nothing) to the file (implemented in inode.c:inode_write_at).
 
     \subsection{Design Decisions}
 
-	This solution has the advantage that ... 
-
-	On the other hand it is not so good that ... . 
-
-	A better solution would be ... . 
-
-	However, this solution is better than ...
+	To solve this problem we chose to keep a reference to the executable file in the process structure. This solution has the advantage that is very simple to be implemented.
 
     \subsection{Tests}
 
