@@ -14,9 +14,14 @@
       "In thread.h :"
 	
 	struct thread {
+	  ...
+	  #ifdef USERPROG
+	    ...
 	    /* The process id to which the thread
 	       belongs to. */
-	       int pid;
+	       pid_t pid;
+	    ...
+	  #endif
 	};
 
 	"In process.h / process.c"
@@ -282,8 +287,8 @@ page_fault (struct intr_frame *f)
     \vspace{-3em} %latex hack
       \begin{program}
 	\textit{for each process in processes\_table}
-	\hspace{30}close\_file\_handles(process);
-	\hspace{30}close(process.exec\_file);
+	\hspace{30pt}close\_file\_handles(process);
+	\hspace{30pt}close(process.exec\_file);
 	shutdown();
       \end{program}
 
