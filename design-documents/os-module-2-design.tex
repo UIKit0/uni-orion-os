@@ -102,7 +102,7 @@
     \subsection{Initial Functionality}
 
 	At the beginning of this project, pintOS does not provide the posibility of running any kind of user programs, much less make system calls from them. Moreover, there is no data structure to support processes. Our purpose is to implement the data structures required to support processes, as well as making various system calls.
-
+  
     \subsection{Data Structures and Functions}
 
     \begin{lstlisting}
@@ -170,10 +170,6 @@
 	 Implementation in pintos manual.*/
       static bool put_user (uint8_t *udst, uint8_t byte);
 
-    //In exception.c:
-
-    page_fault()
-
     //In file.h:
     
     /* Structure used to identify an open file through 
@@ -223,13 +219,15 @@
 	\text{clean memory and release locks}
       \end{program}
 
+    As such, when a system call is made, the kernel can look up the file_descriptor in the process's list, based on the identifier recieved when making the call. If a file_descriptor with that id is not found, the OS ignores the call (but it can choose to act otherwise if needed).
+
     \subsubsection{Validate get from address}
     \vspace{-1em} %latex hack
       \begin{lstlisting}
 //similar for put to address : use put_user
 //(see section Data structures and functions}
 
-if( address > PHYS_BASE ) //is in kernel space 
+if( is_kernel_address(address) )
   free local buffers & release locks
   thread_exit(); 
 else {
@@ -240,6 +238,17 @@ else {
       thread_exit(-1)
   }	
   else byte = (uint8_t)result;
+}
+
+//modify in Exception.c:
+static void
+page_fault (struct intr_frame *f)
+{
+  ...
+  f->eip = f->eax;
+  f->eax = 0xffffffff; //(int)-1
+  
+  kill(f);
 }
       \end{lstlisting}
 
@@ -258,10 +267,14 @@ else {
    {
     ..
     process_t crt_process = get_process(current_thread.pid);
-    if( crt_process.waiter_thread != NULL ) {
-      //after thread_unblock current thread will be destroyed
-      //this is why we release the lock before.
-      syscall_lock.release();
+    close_file_handles(crt_process);
+    
+    //thread_unblock can yield the cpu which
+    //will result in this thread being deleted
+    //this is why we have to release the lock here
+    syscall_lock.release();
+    
+    if( crt_process.waiter_thread != NULL ) 
       thread_unblock( crt_process.waiter_thread );
    }
     \end{lstlisting}
@@ -296,6 +309,8 @@ process_wait (pid_t child_pid)
 	exit_code = get_process(child_pid).exit_code;
     }
 
+    //delete child process record from processes table 
+    //(data about descriptors was already deleted in process_exit)
     clean_process_data(child_pid);
     return exit_code;
 }
