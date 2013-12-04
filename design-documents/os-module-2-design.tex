@@ -107,7 +107,7 @@
 
     \begin{lstlisting}
     //In process.h :
-      
+
       /* maximum number of processes running at the same 
       time. May need some adjustments. */
       #define MAX_PROCESSES 1024
@@ -139,6 +139,9 @@
 
 	  /* List of file descriptors. */
 	  struct list owned_file_descriptors;
+
+	  /* Pointer to element in hash table */
+	  struct hash_elem *h_elem;
       };
     
       typedef struct process_t processs_t;
@@ -147,7 +150,25 @@
 
       /* The processes table. we need a table with all processes, 
       a hash table will do fine, standard C array too. */
-      static process_t processes_table[MAX_PROCESSES];
+      static hash processes_table;
+
+     
+      static unsigned
+      process_hash (const struct hash_elem *p_, void *aux UNUSED);
+      
+      /* Returns true if page a precedes page b. */
+      static bool
+      page_less (const struct hash_elem *a_, 
+		 const struct hash_elem *b_,
+		 void *aux UNUSED);	
+
+      /*
+      * Returns the supplemental page table entry, 
+      * containing the given virtual address,
+      * or a null pointer if no such page exists.
+      */
+      struct process_t *
+      get_process(const int pid);
 
       //In userprog/syscalls.h: (kernel side)
       
@@ -219,7 +240,7 @@
 	\text{clean memory and release locks}
       \end{program}
 
-    As such, when a system call is made, the kernel can look up the file_descriptor in the process's list, based on the identifier recieved when making the call. If a file_descriptor with that id is not found, the OS ignores the call (but it can choose to act otherwise if needed).
+    As such, when a system call is made, the kernel can look up the file\_descriptor in the process's list, based on the identifier recieved when making the call. If a file\_descriptor with that id is not found, the OS ignores the call (but it can choose to act otherwise if needed).
 
     \subsubsection{Validate get from address}
     \vspace{-1em} %latex hack
@@ -384,7 +405,7 @@ process_wait (pid_t child_pid)
 	}	
     \end{lstlisting}
 
-    Trying to write in a file after calling file_deny_write, will result in writing 0 bytes (nothing) to the file (implemented in inode.c:inode_write_at).
+    Trying to write in a file after calling file\_deny\_write, will result in writing 0 bytes (nothing) to the file (implemented in inode.c:inode\_write\_at).
 
     \subsection{Design Decisions}
 
