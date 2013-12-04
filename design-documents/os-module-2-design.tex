@@ -5,7 +5,8 @@
 
     \subsection{Initial Functionality}
 
-	At the beginning of this project the function {\textit{process\_execute()} doesn't support argument passing. We want to implement it so that the main function can be called with arguments.
+	At the beginning of this project the function \textit{process\_execute()} doesn't support argument passing. We want to implement it so that the main function can be called with arguments.
+	We have the function \textit{process\_exit()} which is called every time a process exits which sets the pagedir to null.
 
     \subsection{Data Structures and Functions}
 
@@ -21,8 +22,8 @@
 
 	"In process.h / process.c"
 
-	/* this function return the first substring 
-	of the parameter */
+	/* this function returns the first substring 
+	of the arg */
 	char* firstSubstring( const char* arg, const char delimitator );
 
 	/* this function will add the parameter on the stack.
@@ -36,7 +37,7 @@
 
     \subsection{Functionality}
 
-	  Every time when a process is created the method \textit{process\_execute} is called. Will have as parameter the arguments for the new process.The first substring will be the name of the process.We get the first parameter of the argument and set it as the name of the thread that will be created. The initialization of the new thread will be in the other process.
+	  Every time when a process is created the method \textit{process\_execute} is called. Will have as parameter the name of the file and the arguments for the new process.The first substring will be the name of the process.We get the first parameter of the argument and set it as the name of the thread that will be created. The initialization of the new thread will be in the other process. And we will call the method \textit{process\_execute} to put arguments on the stack.
 
 	  The function passArguments has the following pseudocode
 
@@ -64,13 +65,19 @@
     \END
     \end{program}
 
+    For termination message we will have:
+
+    \begin{lstlisting}
+	printf( "%s: exit(%d)\n", crt_thread->name, crt_thread->exitCode );
+	crt_process->status = KILLED
+    \end{lstlisting}
+
 
     \subsection{Design Decisions}
 
 	This solution has one advantage. The arguments are deduced by the child process. Because we tokenize the parameter in the method \textit{start\_process} which will be called by the child process. If we had done this in the method \textit{process\_execute} then the tokenizing was made by the parent process and the child process, doesn't process his own resources.
 
     \subsection{Tests}
-
 
       \textbf{args-dbl-space.c}\\
       \textit{Source:} tests/userprog/args-dbl-space.c\\
@@ -95,7 +102,6 @@
     \textbf{args-single.c}\\
     \textit{Source:} tests/userprog/args-single.c\\
     \textit{Purpose:} Checks if there is only one argument.\\
-    \textit{Description:}
     
 \section{System calls}
 
@@ -219,7 +225,7 @@
 	\text{clean memory and release locks}
       \end{program}
 
-    As such, when a system call is made, the kernel can look up the file_descriptor in the process's list, based on the identifier recieved when making the call. If a file_descriptor with that id is not found, the OS ignores the call (but it can choose to act otherwise if needed).
+    As such, when a system call is made, the kernel can look up the file\_descriptor in the process's list, based on the identifier recieved when making the call. If a file\_descriptor with that id is not found, the OS ignores the call (but it can choose to act otherwise if needed).
 
     \subsubsection{Validate get from address}
     \vspace{-1em} %latex hack
@@ -251,6 +257,46 @@ page_fault (struct intr_frame *f)
   kill(f);
 }
       \end{lstlisting}
+
+
+    \subsubsection{Exec syscal}
+    \vspace{-3em}
+    \begin{program}
+      syscall\_lock.aquire();
+      process = createNewProcess();
+      initProcess( process );
+      process\_execute( arguments );
+      insertIntoTable( processes );
+    \end{program}
+
+    \begin{lstlisting}
+    
+/* Create new process */
+  void process_execute( const char* arguments )
+  {
+   ...
+   tid = thread_create( firstArgument( arguments ), PRi_DEFAULT, start_process, arguments )
+   ...
+  }
+
+/* Init process */
+  void initProcess( processs_t proc )
+  {
+    proc.pid = nextPid();
+    proc.ppid = current_thread().pid;
+    proc.status = ALIVE;
+    proc.exit_code = -1;
+    proc.waiter_thread = null;
+    init_list( proc.owned_file_descriptors };
+  }
+
+/* Insert into array of process */
+   void inserIntoTable( processs_t proc )
+   {
+     processes_table[ nextPosition ] = proc;
+   }
+    
+    \end{lstlisting}
 
     \subsubsection{Exit sycall}
     \vspace{-3em} %latex hack
@@ -384,7 +430,7 @@ process_wait (pid_t child_pid)
 	}	
     \end{lstlisting}
 
-    Trying to write in a file after calling file_deny_write, will result in writing 0 bytes (nothing) to the file (implemented in inode.c:inode_write_at).
+    Trying to write in a file after calling file\_deny\_write, will result in writing 0 bytes (nothing) to the file (implemented in inode.c:inode\_write\_at).
 
     \subsection{Design Decisions}
 
