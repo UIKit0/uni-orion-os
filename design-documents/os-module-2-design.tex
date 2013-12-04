@@ -15,9 +15,14 @@
       "In thread.h :"
 	
 	struct thread {
+	  ...
+	  #ifdef USERPROG
+	    ...
 	    /* The process id to which the thread
 	       belongs to. */
-	       int pid;
+	       pid_t pid;
+	    ...
+	  #endif
 	};
 
 	"In process.h / process.c"
@@ -113,7 +118,7 @@
 
     \begin{lstlisting}
     //In process.h :
-      
+
       /* maximum number of processes running at the same 
       time. May need some adjustments. */
       #define MAX_PROCESSES 1024
@@ -145,6 +150,9 @@
 
 	  /* List of file descriptors. */
 	  struct list owned_file_descriptors;
+
+	  /* Pointer to element in hash table */
+	  struct hash_elem *h_elem;
       };
     
       typedef struct process_t processs_t;
@@ -153,7 +161,25 @@
 
       /* The processes table. we need a table with all processes, 
       a hash table will do fine, standard C array too. */
-      static process_t processes_table[MAX_PROCESSES];
+      static hash processes_table;
+
+     
+      static unsigned
+      process_hash (const struct hash_elem *p_, void *aux UNUSED);
+      
+      /* Returns true if page a precedes page b. */
+      static bool
+      page_less (const struct hash_elem *a_, 
+		 const struct hash_elem *b_,
+		 void *aux UNUSED);	
+
+      /*
+      * Returns the supplemental page table entry, 
+      * containing the given virtual address,
+      * or a null pointer if no such page exists.
+      */
+      struct process_t *
+      get_process(const int pid);
 
       //In userprog/syscalls.h: (kernel side)
       
@@ -200,6 +226,11 @@
     \subsubsection{Filesystem sycall}
     \vspace{-3em} %latex hack
       \begin{program}
+
+	validate\_user\_stack\_address();
+	\IF \text{invalid addresses}
+	  \THEN sycall\_lock.release();\text{thread\_exit}
+	\FI
 
 	take\_arguments\_from\_stack();
 	select\_system\_call();
@@ -258,7 +289,6 @@ page_fault (struct intr_frame *f)
 }
       \end{lstlisting}
 
-
     \subsubsection{Exec syscal}
     \vspace{-3em}
     \begin{program}
@@ -297,6 +327,16 @@ page_fault (struct intr_frame *f)
    }
     
     \end{lstlisting}
+
+    \subsubsection{Halt sycall}
+    \vspace{-3em} %latex hack
+      \begin{program}
+	\textit{for each process in processes\_table}
+	\hspace{30pt}close\_file\_handles(process);
+	\hspace{30pt}close(process.exec\_file);
+	shutdown();
+      \end{program}
+
 
     \subsubsection{Exit sycall}
     \vspace{-3em} %latex hack
@@ -369,6 +409,19 @@ process_wait (pid_t child_pid)
 
     \subsection{Tests}
 
+      \textbf{child-bad}\\
+      \textit{Source:} tests/userprog/wait-twice\\
+      \textit{Purpose:} Checks if the address of user stack is validated.
+      \textit{Solution:} The validation is done in syscall\_handler.
+
+      \textbf{exit}\\
+      \textit{Source:} tests/userprog/exit.c\\
+      \textit{Purpose:} Checks if exit syscall is implemented.
+
+      \textbf{halt}\\
+      \textit{Source:} tests/userprog/exit.c\\
+      \textit{Purpose:} Checks if halt syscall is implemented.
+      
       \textbf{wait-twice}\\
       \textit{Source:} tests/userprog/wait-twice\\
       \textit{Purpose:} Checks what happens when we wait twice for the same child process
@@ -438,8 +491,19 @@ process_wait (pid_t child_pid)
 
     \subsection{Tests}
 
-    \textbf{name of the test}\\
-    \textit{Source:} path/to/test.c\\
-    \textit{Purpose:} What does it check?\\
-    \textit{Description:} Short description.
-    \textit{Solution:(if necessary)} Here, if what the test does is something that was not explicitly asked in the requirements, it would be good to say that we already treat that situation and where. If it's something that should be solved only by the implementation of the requirements you can say: Solved by requirements fulfillment.
+    \textbf{child-rox}\\
+    \textit{Source:} tests/userprog/child-rox.c\\
+    \textit{Purpose:} Checks if writing is denied to executables\\
+
+    \textbf{rox-child}\\
+    \textit{Source:} tests/userprog/rox-child.c\\
+    \textit{Purpose:} Ensure that the executable of a running process cannot be modified\\    
+
+    \textbf{rox-multichild}\\
+    \textit{Source:} tests/userprog/rox-multichild.c\\
+    \textit{Purpose:} Ensure that the executable of a running process cannot be modified\\
+    
+    \textbf{rox-simple}\\
+    \textit{Source:} tests/userprog/rox-simple.c\\
+    \textit{Purpose:} Ensure that the executable of a running process cannot be modified\\    
+  
