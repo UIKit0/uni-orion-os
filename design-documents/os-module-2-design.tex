@@ -216,6 +216,11 @@
     \vspace{-3em} %latex hack
       \begin{program}
 
+	validate\_user\_stack\_address();
+	\IF \text{invalid addresses}
+	  \THEN sycall\_lock.release();\text{thread\_exit}
+	\FI
+
 	take\_arguments\_from\_stack();
 	select\_system\_call();
 	
@@ -272,6 +277,15 @@ page_fault (struct intr_frame *f)
   kill(f);
 }
       \end{lstlisting}
+
+    \subsubsection{Halt sycall}
+    \vspace{-3em} %latex hack
+      \begin{program}
+	\textit{for each process in processes\_table}
+	\hspace{30}close\_file\_handles(process);
+	\hspace{30}close(process.exec\_file);
+	shutdown();
+      \end{program}
 
     \subsubsection{Exit sycall}
     \vspace{-3em} %latex hack
@@ -344,6 +358,19 @@ process_wait (pid_t child_pid)
 
     \subsection{Tests}
 
+      \textbf{child-bad}\\
+      \textit{Source:} tests/userprog/wait-twice\\
+      \textit{Purpose:} Checks if the address of user stack is validated.
+      \textit{Solution:} The validation is done in syscall\_handler.
+
+      \textbf{exit}\\
+      \textit{Source:} tests/userprog/exit.c\\
+      \textit{Purpose:} Checks if exit syscall is implemented.
+
+      \textbf{halt}\\
+      \textit{Source:} tests/userprog/exit.c\\
+      \textit{Purpose:} Checks if halt syscall is implemented.
+      
       \textbf{wait-twice}\\
       \textit{Source:} tests/userprog/wait-twice\\
       \textit{Purpose:} Checks what happens when we wait twice for the same child process
@@ -413,8 +440,19 @@ process_wait (pid_t child_pid)
 
     \subsection{Tests}
 
-    \textbf{name of the test}\\
-    \textit{Source:} path/to/test.c\\
-    \textit{Purpose:} What does it check?\\
-    \textit{Description:} Short description.
-    \textit{Solution:(if necessary)} Here, if what the test does is something that was not explicitly asked in the requirements, it would be good to say that we already treat that situation and where. If it's something that should be solved only by the implementation of the requirements you can say: Solved by requirements fulfillment.
+    \textbf{child-rox}\\
+    \textit{Source:} tests/userprog/child-rox.c\\
+    \textit{Purpose:} Checks if writing is denied to executables\\
+
+    \textbf{rox-child}\\
+    \textit{Source:} tests/userprog/rox-child.c\\
+    \textit{Purpose:} Ensure that the executable of a running process cannot be modified\\    
+
+    \textbf{rox-multichild}\\
+    \textit{Source:} tests/userprog/rox-multichild.c\\
+    \textit{Purpose:} Ensure that the executable of a running process cannot be modified\\
+    
+    \textbf{rox-simple}\\
+    \textit{Source:} tests/userprog/rox-simple.c\\
+    \textit{Purpose:} Ensure that the executable of a running process cannot be modified\\    
+  
