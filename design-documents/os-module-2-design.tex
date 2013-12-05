@@ -397,6 +397,7 @@ process_wait (pid_t child_pid)
     }
     else if(get_process(child_pid).status == RUNNING) {
       lock_release(&process_wait_lock);
+      get_process( child_pid ).waiting_threads = current_thread();
       thread_block();
 
 
