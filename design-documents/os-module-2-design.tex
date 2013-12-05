@@ -251,7 +251,8 @@
 	\FI
 
 	\text{find file descriptor by id}
-	\text{call functions from file.h/filesys.h using local buffers}
+	\text{call local implementations of syscalls that do not validate address }
+	\text{local implementations will call functions from file.h / filesys.h}
 
 	\text{clean memory and release locks}
       \end{program}
@@ -293,21 +294,44 @@ page_fault (struct intr_frame *f)
     \vspace{-3em}
     \begin{program}
       syscall\_lock.aquire();
-      process = createNewProcess();
-      initProcess( process );
-      insertIntoTable( processes );
-      tid = process\_execute( arguments );
-      getThread( tid ).pid = process.pid;
+      tid = process\_execute( cmd\_line );
+      f->eax = process.pid;
     \end{program}
 
     \begin{lstlisting}
     
 /* Create new process */
-  void process_execute( const char* arguments )
+  tid_t process_execute( const char* arguments )
   {
    ...
+   process = createNewProcess();
+   initProcess( process );
    tid = thread_create( firstArgument( arguments ), PRi_DEFAULT, start_process, arguments )
+   getThread( tid ).pid = process.pid;
+   process.waiter_thread = current_thread();
+   insertIntoTable( processes );
+   thread_block();
+
+
+   if ( !get_process( child_pid ) )
+    return tid;
+   return -1;
    ...
+  }
+
+  void start_process( const char* arguments )
+  {
+  ...
+  //after load
+  waiter_thread = get_process().waiter_thread;
+  if ( !success )
+    deleteProcess( get_process() )
+
+  thread_unblock( waiter_thread );
+
+  
+  //
+  ...
   }
 
 /* Init process */
@@ -335,7 +359,7 @@ page_fault (struct intr_frame *f)
 	\textit{for each process in processes\_table}
 	\hspace{30pt}close\_file\_handles(process);
 	\hspace{30pt}close(process.exec\_file);
-	shutdown();
+	shutdown\_power\_off();
       \end{program}
 
 
