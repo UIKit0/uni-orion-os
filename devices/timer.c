@@ -170,7 +170,7 @@ static void timer_interrupt(struct intr_frame *args UNUSED) {
 
 		}
 		else if (ticks % 4 == 0) {
-			thread_recompute_priority(cthread, 1);
+			thread_recompute_priority(cthread, (void *)1);
 		}
 	}
 }
