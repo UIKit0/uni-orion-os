@@ -221,6 +221,72 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 	return tid;
 }
 
+/* Creates a new process that runs on a kernel thread named NAME 
+ with the given initial PRIORITY, which executes FUNCTION passing 
+ AUX as the argument, and adds it to the ready queue.  Returns the 
+ thread identifier for the new thread, or TID_ERROR if creation fails.
+
+ If thread_start() has been called, then the new thread may be
+ scheduled before thread_create() returns.  It could even exit
+ before thread_create() returns.  Contrariwise, the original
+ thread may run for any amount of time before the new thread is
+ scheduled.  Use a semaphore or some other form of
+ synchronization if you need to ensure ordering.
+
+ The code provided sets the new thread's `priority' member to
+ PRIORITY, but no actual priority scheduling is implemented.
+ Priority scheduling is the goal of Problem 1-3. */
+#ifdef USERPROG
+tid_t thread_process_create(const char *name, int priority, thread_func *function,
+		void *aux, process_t *prc) {
+	struct thread *t;
+	struct kernel_thread_frame *kf;
+	struct switch_entry_frame *ef;
+	struct switch_threads_frame *sf;
+	tid_t tid;
+	enum intr_level old_level;
+
+	ASSERT(function != NULL);
+
+	/* Allocate thread. */
+	t = palloc_get_page(PAL_ZERO);
+	if (t == NULL )
+		return TID_ERROR ;
+
+	/* Initialize thread. */
+	init_thread(t, name, priority);
+	tid = t->tid = allocate_tid();
+	t->pid = prc->pid;
+
+	/* Prepare thread for first run by initializing its stack.
+	 Do this atomically so intermediate values for the 'stack'
+	 member cannot be observed. */
+	old_level = intr_disable();
+
+	/* Stack frame for kernel_thread(). */
+	kf = alloc_frame(t, sizeof *kf);
+	kf->eip = NULL;
+	kf->function = function;
+	kf->aux = aux;
+
+	/* Stack frame for switch_entry(). */
+	ef = alloc_frame(t, sizeof *ef);
+	ef->eip = (void (*)(void)) kernel_thread;
+
+	/* Stack frame for switch_threads(). */
+	sf = alloc_frame(t, sizeof *sf);
+	sf->eip = switch_entry;
+	sf->ebp = 0;
+
+	intr_set_level(old_level);
+
+	/* Add to run queue. */
+	thread_unblock(t);
+
+	return tid;
+}
+#endif
+
 /* Puts the current thread to sleep.  It will not be scheduled
  again until awoken by thread_unblock().
 
@@ -484,7 +550,7 @@ void thread_demote(void)
     thread_on_priority_change(cur, old_priority, new_priority);
 }
 
-static void thread_on_priority_change(struct thread* t, int old_priority, int new_priority)
+static void thread_on_priority_change(struct thread* t, int old_priority UNUSED, int new_priority)
 {
     // move the thread to a new ready list
     if (t->status == THREAD_READY)
@@ -625,7 +691,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
 		t->recent_cpu = cthread != NULL? cthread->recent_cpu : fp_from_int(0);
 	    t->nice = cthread != NULL? cthread->nice : 0;
 
-		thread_recompute_priority(t, 1);
+		thread_recompute_priority(t, (void *)1);
 	}
 	else {
 		t->priority = priority;

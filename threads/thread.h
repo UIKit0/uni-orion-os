@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "userprog/common.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -104,6 +105,7 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    pid_t pid;
 #endif
 
     /* Owned by thread.c. */
@@ -123,6 +125,10 @@ void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
+
+#ifdef USERPROG
+tid_t thread_process_create (const char *name, int priority, thread_func *, void *, process_t *prc);
+#endif
 
 void thread_block (void);
 void thread_unblock (struct thread *);
