@@ -365,13 +365,17 @@ page_fault (struct intr_frame *f)
    }
     \end{lstlisting}
 
+    \newpage
 
     \subsubsection{wait syscall}
-    \vspace{-1em} %latex hack
+    \vspace{-1em} %latex hack.. Stop hacking me.
     \begin{lstlisting}
 int
 process_wait (pid_t child_pid) 
 {
+    /*this may be unnecessary because we already synchronized
+    in the SYSCALL scope. However if we want to synchronize in
+    the function scope this will be kept. */
     lock_aquire(&process_wait_lock);
     
     //we test if child_tid is in the table.
@@ -391,13 +395,18 @@ process_wait (pid_t child_pid)
 	exit_code = get_process(child_pid).exit_code;            
     }
     else if(get_process(child_pid).status == RUNNING) {
-	thread_block(); 
-	exit_code = get_process(child_pid).exit_code;
+      lock_release(&process_wait_lock);
+      thread_block();
+
+
+      lock_aquire(&process_wait_lock);
+      exit_code = get_process(child_pid).exit_code;
     }
 
     //delete child process record from processes table 
     //(data about descriptors was already deleted in process_exit)
     clean_process_data(child_pid);
+    lock_release(&process_wait_lock);
     return exit_code;
 }
     \end{lstlisting}
