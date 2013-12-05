@@ -59,7 +59,7 @@
               \DO
 		token := strtok\_k( x );
 		\IF token= null 
-		  \THEN \BREAK 
+		  \THEN \text{break} 
 		  \ELSE push( s, token )   
 		\FI;
 	      \OD
@@ -295,8 +295,9 @@ page_fault (struct intr_frame *f)
       syscall\_lock.aquire();
       process = createNewProcess();
       initProcess( process );
-      process\_execute( arguments );
       insertIntoTable( processes );
+      tid = process\_execute( arguments );
+      getThread( tid ).pid = process.pid;
     \end{program}
 
     \begin{lstlisting}
