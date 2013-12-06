@@ -28,14 +28,11 @@ struct process_t {
 	enum pstatus_t status;
 	/* the code returned by the process at exit */
 	int exit_code;
-	/* The thread that is waiting after this thread. */
-	struct thread* waiter_thread;
 	/* List of file descriptors. */
 	struct list owned_file_descriptors;
 	/* Pointer to element in hash table */
 	struct hash_elem h_elem;
-
-	/* wating sema instead of thread_block/unblock hackarounds */
+	/* wating semaphore instead of thread_block/unblock hackarounds */
 	struct semaphore process_semaphore;
 };
 typedef struct process_t process_t;

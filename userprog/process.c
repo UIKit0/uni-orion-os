@@ -109,7 +109,6 @@ void init_master_process( process_t* proc) {
   proc->ppid = PID_ERROR;
   proc->status = ALIVE;
   proc->exit_code = -1;
-  proc->waiter_thread = NULL;
   list_init( &proc->owned_file_descriptors );
   //we don't really need the process_lock for the master process  
 }
@@ -119,7 +118,6 @@ void init_process( process_t* proc ) {
   proc->ppid = process_current()->pid;
   proc->status = ALIVE;
   proc->exit_code = -1;
-  proc->waiter_thread = NULL;
   list_init( &proc->owned_file_descriptors );
   sema_init( &(proc->process_semaphore), 1);
 }
@@ -172,8 +170,6 @@ process_execute (const char *file_name)
     return PID_ERROR;
   }
 
- 
-  p->waiter_thread = NULL;
   return p->pid;
 }
 
@@ -248,11 +244,8 @@ process_wait (pid_t child_tid)
     exit_code = child->exit_code;
   }
   else if(child->status == ALIVE) {
-    child->waiter_thread = thread_current();
-    lock_release(&process_wait_lock);    
-    
-    sema_down (&(child->process_semaphore));
-    
+    lock_release(&process_wait_lock);       
+    sema_down (&(child->process_semaphore));    
     lock_acquire(&process_wait_lock);
     exit_code = child->exit_code;
     delete_process(child);
