@@ -5,8 +5,8 @@
 #include "threads/thread.h"
 #include "userprog/process.h"
 
-#define READ	0
-#define WRITE 	1
+#define READ	1
+#define WRITE 	2
 
 static void syscall_handler (struct intr_frame *);
 
