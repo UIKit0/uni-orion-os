@@ -36,6 +36,7 @@ void delete_process(process_t *process);
 void insert_process(process_t *process);
 pid_t allocate_pid (void);
 void init_process( process_t* proc );
+void init_master_process( process_t* proc );
 
 
 
@@ -83,6 +84,15 @@ void process_init(void) {
   lock_init(&pid_lock);
   hash_init(&process_table, &process_hash_func,
     process_hash_less_func, NULL);
+
+
+  process_t *p; //initial process. Father of all.
+  p = palloc_get_page (0);
+  ASSERT(p);
+
+  init_master_process(p);    
+  insert_process(p);
+  thread_current()->pid = p->pid;
 }
 
 pid_t allocate_pid() {
@@ -94,8 +104,16 @@ pid_t allocate_pid() {
   return pid; 
 }
 
-void init_process( process_t* proc )
-{
+void init_master_process( process_t* proc) {
+  proc->pid = allocate_pid();
+  proc->ppid = PID_ERROR;
+  proc->status = ALIVE;
+  proc->exit_code = -1;
+  proc->waiter_thread = NULL;
+  list_init( &proc->owned_file_descriptors ); 
+}
+
+void init_process( process_t* proc ) {
   proc->pid = allocate_pid();
   proc->ppid = process_current()->pid;
   proc->status = ALIVE;
