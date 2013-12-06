@@ -119,7 +119,7 @@ void init_process( process_t* proc ) {
   proc->status = ALIVE;
   proc->exit_code = -1;
   list_init( &proc->owned_file_descriptors );
-  sema_init( &(proc->process_semaphore), 1);
+  sema_init( &(proc->process_semaphore), 0);
 }
 
 /* Starts a new thread running a user program loaded from
@@ -169,7 +169,6 @@ process_execute (const char *file_name)
     palloc_free_page(p);
     return PID_ERROR;
   }
-
   return p->pid;
 }
 
@@ -243,9 +242,9 @@ process_wait (pid_t child_tid)
   else if(child->status == DEAD) {
     exit_code = child->exit_code;
   }
-  else if(child->status == ALIVE) {
-    lock_release(&process_wait_lock);       
-    sema_down (&(child->process_semaphore));    
+  else if(child->status == ALIVE) {    
+    lock_release(&process_wait_lock);    
+    sema_down (&(child->process_semaphore));
     lock_acquire(&process_wait_lock);
     exit_code = child->exit_code;
     delete_process(child);
@@ -263,7 +262,8 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
   process_t * current = process_current();
-
+  
+  printf( "%s: exit(%d)\n", cur->name, current->exit_code);
   sema_up (&(current->process_semaphore));
   
   /* Destroy the current process's page directory and switch back
@@ -282,6 +282,8 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+
 }
 
 /* Sets up the CPU for running user code in the current

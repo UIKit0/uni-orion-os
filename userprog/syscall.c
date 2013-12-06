@@ -15,6 +15,27 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  printf ("system call!\n");
-  //thread_exit ();
+  /* Added by Adrian Colesa - multithreading */
+	int syscall_no = ((int*)f->esp)[0];
+	int fd, no;
+	char *buf;	
+	
+	switch (syscall_no) {
+		case SYS_EXIT:
+			printf ("SYS_EXIT system call from thread %d!\n", thread_current()->tid);
+			thread_exit();
+			return;
+		case SYS_WRITE:
+			fd = ((int*)f->esp)[1];
+			buf = (char*) ((int*)f->esp)[2];
+			no = ((int*)f->esp)[3];
+
+			if (fd == 1) {
+				//we trust you... You won't break stuff.
+				putbuf(buf, no);
+			}
+			f->eax = no;
+			return;
+		}
+	thread_exit ();  
 }
