@@ -256,7 +256,7 @@ process_wait (pid_t child_tid)
     lock_acquire(&process_wait_lock);
     exit_code = child->exit_code;
     delete_process(child);
-    
+    palloc_free_page(child);
   }
   lock_release(&process_wait_lock);
   
