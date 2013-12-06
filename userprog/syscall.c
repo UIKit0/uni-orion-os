@@ -21,22 +21,6 @@ void syscall_seek(struct intr_frame *f UNUSED);
 void syscall_tell(struct intr_frame *f UNUSED);
 void syscall_close(struct intr_frame *f UNUSED);
 
-/* Projects 2 and later. 
-void halt (void) NO_RETURN;
-void exit (int status) NO_RETURN;
-pid_t exec (const char *file);
-int wait (pid_t);
-bool create (const char *file, unsigned initial_size);
-bool remove (const char *file);
-int open (const char *file);
-int filesize (int fd);
-int read (int fd, void *buffer, unsigned length);
-int write (int fd, const void *buffer, unsigned length);
-void seek (int fd, unsigned position);
-unsigned tell (int fd);
-void close (int fd);
-*/
-
 void syscall_init (void) {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
