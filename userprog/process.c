@@ -4,6 +4,7 @@
 #include <round.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <hash.h>
 #include <string.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
@@ -17,15 +18,73 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+
+
+static struct lock process_wait_lock;
+static struct hash process_table;
+
+unsigned process_hash_func (const struct hash_elem *e, void *aux);
+bool process_hash_less_func (const struct hash_elem *a,
+                             const struct hash_elem *b,
+                             void *aux);
+void delete_process(process_t *process);
+void insert_process(process_t *process);
+
+
+
+unsigned process_hash_func (const struct hash_elem *e, void *aux UNUSED) {
+  process_t *p = hash_entry(e, process_t, h_elem);
+  return hash_int(p->pid);
+}
+
+bool process_hash_less_func (const struct hash_elem *a,
+                             const struct hash_elem *b,
+                             void *aux UNUSED) {
+  process_t *lhs = hash_entry(a, process_t, h_elem);
+  process_t *rhs = hash_entry(b, process_t, h_elem);
+  return lhs->pid < rhs->pid;
+}
+
+process_t * find_process(pid_t pid) {
+  process_t dummy;
+  dummy.pid = pid;
+  struct hash_elem *result = hash_find(&process_table, &(dummy.h_elem));
+  return result != NULL ? hash_entry(result, process_t, h_elem) : NULL;
+}
+
+void delete_process(process_t *proc) {
+  hash_delete(&process_table, &(proc->h_elem));
+}
+
+void insert_process(process_t *proc) {
+  hash_insert(&process_table, &(proc->h_elem));
+}
+
+process_t *process_current(void) {
+  #ifdef USERPROG
+    return find_process(thread_current()->pid);
+  #else
+    return NULL;
+  #endif
+}
+/* Initializes different mechanisms used with process kernel functions. It is called once from init.c when the OS starts */
+
+void process_init(void) {
+  lock_init(&process_wait_lock);
+  hash_init(&process_table, &process_hash_func,
+    process_hash_less_func, NULL);
+}
+
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
-tid_t
+pid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
@@ -86,9 +145,39 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (pid_t child_tid) 
 {
-  return -1;
+  lock_acquire(&process_wait_lock);
+
+  process_t *child = find_process(child_tid);
+  process_t *current = process_current();
+
+  if(child == NULL)
+    return -1;
+
+  if(current->pid != child->ppid) 
+    return -1;
+
+  int exit_code = -1;
+
+  if(child->status == KILLED) {
+    exit_code = -1;
+  }
+  else if(child->status == DEAD) {
+    exit_code = child->exit_code;
+  }
+  else if(child->status == ALIVE) {
+    child->waiter_thread = thread_current();
+    lock_release(&process_wait_lock);
+    thread_block();
+    lock_acquire(&process_wait_lock);
+    exit_code = child->exit_code;
+    delete_process(child);
+    
+  }
+  lock_release(&process_wait_lock);
+  
+  return exit_code;
 }
 
 /* Free the current process's resources. */

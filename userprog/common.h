@@ -1,6 +1,7 @@
 #ifndef USERPROG_COMMON_H
 #define USERPROG_COMMON_H
 #include <list.h>
+#include <hash.h>
 
 /* Process identifier type.
    You can redefine this to whatever type you like. */
@@ -8,8 +9,6 @@ typedef int pid_t;
 
 /* forward declarations */
 struct thread;
-struct hash_elem;
-struct list;
 
 enum pstatus_t {
 	ALIVE, 
@@ -31,7 +30,7 @@ struct process_t {
 	/* List of file descriptors. */
 	struct list owned_file_descriptors;
 	/* Pointer to element in hash table */
-	struct hash_elem *h_elem;
+	struct hash_elem h_elem;
 };
 typedef struct process_t process_t;
 
