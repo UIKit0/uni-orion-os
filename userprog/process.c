@@ -25,6 +25,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 
 static struct lock process_wait_lock;
+static struct lock pid_lock;
 static struct hash process_table;
 
 unsigned process_hash_func (const struct hash_elem *e, void *aux);
@@ -33,6 +34,8 @@ bool process_hash_less_func (const struct hash_elem *a,
                              void *aux);
 void delete_process(process_t *process);
 void insert_process(process_t *process);
+pid_t allocate_pid (void);
+void init_process( process_t* proc );
 
 
 
@@ -75,10 +78,29 @@ process_t *process_current(void) {
 
 void process_init(void) {
   lock_init(&process_wait_lock);
+  lock_init(&pid_lock);
   hash_init(&process_table, &process_hash_func,
     process_hash_less_func, NULL);
 }
 
+pid_t allocate_pid() {
+  static pid_t next_pid = 1;
+  pid_t pid;
+  lock_acquire(&pid_lock);
+  pid = next_pid++;
+  lock_release(&pid_lock);
+  return pid; 
+}
+
+void init_process( process_t* proc )
+{
+  proc->pid = allocate_pid();
+  proc->ppid = process_current()->pid;
+  proc->status = ALIVE;
+  proc->exit_code = -1;
+  proc->waiter_thread = NULL;
+  list_init( &proc->owned_file_descriptors );
+}
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -88,20 +110,50 @@ pid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
-  tid_t tid;
+  process_t *p;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
-    return TID_ERROR;
+    return PID_ERROR;
+
+
+  p = palloc_get_page (0);
+
+  if(p == NULL) {
+    palloc_free_page (fn_copy); //ensure that we are not leaking pages
+    return PID_ERROR;
+  }  
+
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /* Initialize process and add it into the hash table. */
+  init_process(p);
+  p->waiter_thread = thread_current();
+  insert_process(p);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
-  return tid;
+  tid_t tid = thread_process_create (file_name, PRI_DEFAULT, start_process, fn_copy, p);
+
+
+  if (tid == TID_ERROR) {
+    palloc_free_page(fn_copy);
+    delete_process(p);
+    palloc_free_page(p);
+    return PID_ERROR;
+  }
+
+  thread_block();
+
+  if( find_process(p->ppid) == NULL ) {
+    palloc_free_page(p);
+    return PID_ERROR;
+  }
+
+ 
+  p->waiter_thread = NULL;
+  return p->pid;
 }
 
 /* A thread function that loads a user process and starts it
@@ -122,8 +174,14 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
+  
+  if (!success) {
+    delete_process(process_current());
+    thread_unblock(process_current()->waiter_thread);
     thread_exit ();
+  } else {
+    thread_unblock(process_current()->waiter_thread); //we need this duplicate code because thread_exit will trigger a schedule.
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -526,7 +584,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12;
       else
         palloc_free_page (kpage);
     }

@@ -7,6 +7,8 @@
    You can redefine this to whatever type you like. */
 typedef int pid_t;
 
+static pid_t const PID_ERROR = -1;
+
 /* forward declarations */
 struct thread;
 
