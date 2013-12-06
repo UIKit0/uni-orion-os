@@ -110,7 +110,8 @@ void init_master_process( process_t* proc) {
   proc->status = ALIVE;
   proc->exit_code = -1;
   proc->waiter_thread = NULL;
-  list_init( &proc->owned_file_descriptors ); 
+  list_init( &proc->owned_file_descriptors );
+  //we don't really need the process_lock for the master process  
 }
 
 void init_process( process_t* proc ) {
@@ -120,6 +121,7 @@ void init_process( process_t* proc ) {
   proc->exit_code = -1;
   proc->waiter_thread = NULL;
   list_init( &proc->owned_file_descriptors );
+  sema_init( &(proc->process_semaphore), 1);
 }
 
 /* Starts a new thread running a user program loaded from
@@ -150,7 +152,6 @@ process_execute (const char *file_name)
 
   /* Initialize process and add it into the hash table. */
   init_process(p);
-  p->waiter_thread = thread_current();
   insert_process(p);
 
   /* Create a new thread to execute FILE_NAME. */
@@ -164,8 +165,8 @@ process_execute (const char *file_name)
     return PID_ERROR;
   }
 
-  thread_block();
-
+  sema_down (&(p->process_semaphore));
+  
   if( find_process(p->ppid) == NULL ) {
     palloc_free_page(p);
     return PID_ERROR;
@@ -194,13 +195,15 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+
+  process_t *p = process_current();
   
   if (!success) {
-    delete_process(process_current());
-    thread_unblock(process_current()->waiter_thread);
+    delete_process(p);
+    sema_up (&(p->process_semaphore));
     thread_exit ();
   } else {
-    thread_unblock(process_current()->waiter_thread); //we need this duplicate code because thread_exit will trigger a schedule.
+    sema_up (&(p->process_semaphore)); //we need this duplicate code because thread_exit will trigger a schedule.
   }
 
   /* Start the user process by simulating a return from an
@@ -246,8 +249,10 @@ process_wait (pid_t child_tid)
   }
   else if(child->status == ALIVE) {
     child->waiter_thread = thread_current();
-    lock_release(&process_wait_lock);
-    thread_block();
+    lock_release(&process_wait_lock);    
+    
+    sema_down (&(child->process_semaphore));
+    
     lock_acquire(&process_wait_lock);
     exit_code = child->exit_code;
     delete_process(child);
@@ -264,12 +269,10 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  process_t * current = process_current(); 
+  process_t * current = process_current();
 
-  if(current->waiter_thread != NULL) {
-    thread_unblock(current->waiter_thread);
-  }
-
+  sema_up (&(current->process_semaphore));
+  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;

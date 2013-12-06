@@ -2,6 +2,7 @@
 #define USERPROG_COMMON_H
 #include <list.h>
 #include <hash.h>
+#include <threads/synch.h>
 
 /* Process identifier type.
    You can redefine this to whatever type you like. */
@@ -33,6 +34,9 @@ struct process_t {
 	struct list owned_file_descriptors;
 	/* Pointer to element in hash table */
 	struct hash_elem h_elem;
+
+	/* wating sema instead of thread_block/unblock hackarounds */
+	struct semaphore process_semaphore;
 };
 typedef struct process_t process_t;
 
