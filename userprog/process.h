@@ -10,7 +10,7 @@ void process_exit (void);
 void process_activate (void);
 void process_init(void);
 
-process_t *process_current(void);
+process_t * process_current(void);
 process_t * find_process(pid_t pid);
 
 #endif /* userprog/process.h */

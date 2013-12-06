@@ -69,7 +69,9 @@ void insert_process(process_t *proc) {
 
 process_t *process_current(void) {
   #ifdef USERPROG
-    return find_process(thread_current()->pid);
+    process_t *result = find_process(thread_current()->pid);
+    ASSERT(result);
+    return result;
   #else
     return NULL;
   #endif
@@ -244,6 +246,11 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+  process_t * current = process_current(); 
+
+  if(current->waiter_thread != NULL) {
+    thread_unblock(current->waiter_thread);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
