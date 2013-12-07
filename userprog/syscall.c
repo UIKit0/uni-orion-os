@@ -4,6 +4,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/process.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 #define READ	1
 #define WRITE 	2
@@ -30,19 +32,36 @@ void syscall_init (void) {
 }
 
 /* Verify a given address belongs to safe user space. */
-static bool is_valid_user_address(char* address) {
+static bool is_valid_user_address(char* address UNUSED) {
 	return true;
 }
 
 /* Verify a given address range belongs to safe user space. */
-static bool is_valid_user_address_range(char* address, int size) {
+static bool is_valid_user_address_range(char* address UNUSED, int size UNUSED) {
 	return true;
+}
+
+/*
+ *	Creates a new, unused, file descriptor.
+ */
+static int fd_create(void) {
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+	int max_fd = 2;
+    for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+        int fd = list_entry(e, struct fd_list_link, l_elem)->fd;
+        if (fd > max_fd) {
+        	max_fd = fd;
+        }
+    }
+
+    return max_fd + 1;
 }
 
 /* 
  * Returns true if the file descriptor was assigned to a file opened by this process. 
  */
-static bool is_valid_file_descriptor(int fd, int direction) {
+static bool fd_is_valid(int fd, int direction) {
 	if (fd == STDOUT && (direction & WRITE) != 0) {
 		return true;
 	}
@@ -51,11 +70,50 @@ static bool is_valid_file_descriptor(int fd, int direction) {
 		return true;
 	}
 
-	// TODO: search through opened file descriptors
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+    for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+        int current_fd = list_entry(e, struct fd_list_link, l_elem)->fd;
+        if (current_fd == fd) {
+        	return true;
+        }
+    }
+
+    return false;
+}
+
+/*
+ *	Returns the file structured managed by this file descriptor.
+ */
+static struct file *fd_get_file(int fd) {
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+    for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+    	struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
+        if (link->fd == fd) {
+        	return link->file;
+        }
+    }
+    return NULL;
+}
+
+/*
+ *	Returns the list element that links this file descriptor;
+ */
+static struct list_elem *fd_get_list_elem(int fd) {
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+    for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+    	struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
+        if (link->fd == fd) {
+        	return &link->l_elem;
+        }
+    }
+    return NULL;
 }
 
 /* Slap the user and kill his process. */
-static void kill_current_process() {
+static void kill_current_process(void) {
 	process_current()->exit_code = 0x0BADF;
 	thread_exit();
 }
@@ -73,7 +131,7 @@ void syscall_wait(struct intr_frame *f) {
 
 /* Create a file. */
 static void syscall_create(struct intr_frame *f) {
-	char* file_name = ((int*)f->esp)[1];
+	char* file_name = (char*) ((int*)f->esp)[1];
 	int initial_size = ((int*)f->esp)[2];
 
 	if (!is_valid_user_address(file_name)) {
@@ -81,43 +139,60 @@ static void syscall_create(struct intr_frame *f) {
 		return;
 	}
 
-	// TODO: returns true if successful
+	bool success = filesys_create(file_name, initial_size);
+	f->eax = success;
 }
 
 /* Delete a file. */
 static void syscall_remove(struct intr_frame *f) {
-	char* file_name = (char*) ((int*)f->esp)[1];
+	char *file_name = (char*) ((int*)f->esp)[1];
 
 	if (!is_valid_user_address(file_name)) {
 		kill_current_process();
 		return;
 	}
 
-	// TODO: returns true if successful
+	bool success = filesys_remove(file_name);
+	f->eax = success;
 }
 
 /* Open a file. */
 static void syscall_open(struct intr_frame *f) {
-	char* file_name = (char*) ((int*)f->esp)[1];
+	char *file_name = (char*) ((int*)f->esp)[1];
 
 	if (!is_valid_user_address(file_name)) {
 		kill_current_process();
 		return;
 	}
 
-	// TODO: returns a nonnegative file descriptor or -1 in case of error
+	struct file *file = filesys_open(file_name);
+	if (file == NULL){
+		f->eax = -1;
+		return;
+	}
+
+	// get a new file_descriptor
+	int fd = fd_create();
+
+	struct fd_list_link link;
+	link.fd = fd;
+	link.file = file;
+	list_push_back(&process_current()->owned_file_descriptors, &link.l_elem);
+
+	f->eax = fd;
 }
 
 /* Obtain a file's size. */
 static void syscall_filesize(struct intr_frame *f) {
 	int fd = ((int*)f->esp)[1];
 
-	if (!is_valid_file_descriptor(fd, READ | WRITE) || fd == STDIN  || fd == STDOUT) {
+	if (!fd_is_valid(fd, READ | WRITE) || fd == STDIN  || fd == STDOUT) {
 		f->eax = -1;
 		return;
 	}
 
-	// TODO: returns the size in bytes
+	struct file *file = fd_get_file(fd);
+	f->eax = file != NULL ? file_length(file) : 0;
 }
 
 /* Read from a file. */
@@ -131,7 +206,7 @@ static void syscall_read(struct intr_frame *f) {
 		return;
 	}
 
-	if (!is_valid_file_descriptor(fd, READ)) {
+	if (!fd_is_valid(fd, READ)) {
 		f->eax = 0;
 		return;
 	}
@@ -150,7 +225,7 @@ void syscall_write(struct intr_frame *f) {
 		return;
 	}
 
-	if (!is_valid_file_descriptor(fd, WRITE)) {
+	if (!fd_is_valid(fd, WRITE)) {
 		f->eax = 0;
 		return;
 	}
@@ -169,35 +244,40 @@ static void syscall_seek(struct intr_frame *f) {
 	int fd = ((int*)f->esp)[1];
 	unsigned int position = ((int*)f->esp)[2];
 
-	if (!is_valid_file_descriptor(fd, WRITE)) {
+	if (!fd_is_valid(fd, WRITE)) {
 		f->eax = 0;
 		return;
 	}
 
-	// TODO: implement!! void return type
+	struct file *file = fd_get_file(fd);
+	if (file != NULL) {
+		file_seek(file, position);
+	}
 }
 
 /* Report current position in a file. */
 static void syscall_tell(struct intr_frame *f) {
 	int fd = ((int*)f->esp)[1];
 
-	if (!is_valid_file_descriptor(fd, READ | WRITE)) {
+	if (!fd_is_valid(fd, READ | WRITE)) {
 		f->eax = -1;
 		return;
 	}
 
-	// TODO: returns the position of the next byte to be read or written.
+	struct file *file = fd_get_file(fd);
+	f->eax = file != NULL ? file_tell(file) : 0;
 }
 
 /* Close a file. */
 static void syscall_close(struct intr_frame *f) {
 	int fd = ((int*)f->esp)[1];
 
-	if (!is_valid_file_descriptor(fd, READ | WRITE) || fd == STDIN || fd == STDOUT) {
+	if (!fd_is_valid(fd, READ | WRITE) || fd == STDIN || fd == STDOUT) {
 		return;
 	}
 
-	// TODO: close the file descriptor
+	file_close(fd_get_file(fd));
+	list_remove(fd_get_list_elem(fd));
 }
 
 /* Start another process. */

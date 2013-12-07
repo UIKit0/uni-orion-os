@@ -29,25 +29,20 @@ static struct lock pid_lock;
 static struct hash process_table;
 
 unsigned process_hash_func (const struct hash_elem *e, void *aux);
-bool process_hash_less_func (const struct hash_elem *a,
-                             const struct hash_elem *b,
-                             void *aux);
+bool process_hash_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux);
+
 void delete_process(process_t *process);
 void insert_process(process_t *process);
 pid_t allocate_pid (void);
 void init_process( process_t* proc );
 void init_master_process( process_t* proc );
 
-
-
 unsigned process_hash_func (const struct hash_elem *e, void *aux UNUSED) {
   process_t *p = hash_entry(e, process_t, h_elem);
   return hash_int(p->pid);
 }
 
-bool process_hash_less_func (const struct hash_elem *a,
-                             const struct hash_elem *b,
-                             void *aux UNUSED) {
+bool process_hash_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
   process_t *lhs = hash_entry(a, process_t, h_elem);
   process_t *rhs = hash_entry(b, process_t, h_elem);
   return lhs->pid < rhs->pid;
@@ -77,8 +72,8 @@ process_t *process_current(void) {
     return NULL;
   #endif
 }
-/* Initializes different mechanisms used with process kernel functions. It is called once from init.c when the OS starts */
 
+/* Initializes different mechanisms used with process kernel functions. It is called once from init.c when the OS starts */
 void process_init(void) {
   lock_init(&process_wait_lock);
   lock_init(&pid_lock);
