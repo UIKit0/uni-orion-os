@@ -25,6 +25,13 @@ struct process_t {
 	struct semaphore process_semaphore;
 };
 
+struct fd_list_link {
+	struct list_elem l_elem;
+
+	int fd;
+	struct file *file;
+};
+
 pid_t process_execute (const char *file_name);
 int process_wait (pid_t);
 void process_exit (void);
