@@ -126,7 +126,7 @@ void syscall_exit(struct intr_frame *f) {
 
 /* Wait for a child process to die. */
 void syscall_wait(struct intr_frame *f) {
-	process_wait(((int*)f->esp)[1]);
+	f->eax = process_wait(((int*)f->esp)[1]);
 }
 
 /* Create a file. */
