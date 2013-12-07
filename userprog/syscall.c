@@ -211,7 +211,12 @@ static void syscall_read(struct intr_frame *f) {
 		return;
 	}
 
-	// TODO: return the number of bytes read
+	if (fd == STDIN) {
+		// TODO: read from the keyboard using input_getc()
+	}
+
+	struct file* file = fd_get_file(fd);
+	f->eax = file != NULL ? file_read(file, buffer, size) : 0;
 }
 
 /* Write to a file. */
@@ -234,9 +239,8 @@ void syscall_write(struct intr_frame *f) {
 		putbuf(buffer, size);
 	}
 
-	// TODO: implement!!
-
-	f->eax = size;
+	struct file* file = fd_get_file(fd);
+	f->eax = file != NULL ? file_write(file, buffer, size) : 0;
 }
 
 /* Change position in a file. */
