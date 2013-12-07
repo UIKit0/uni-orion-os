@@ -333,6 +333,7 @@ process_exit (void)
   else {
     exit_code = current->exit_code;
   }  
+  printf("%s: exit(%d)\n", cur->name, exit_code);
   sema_up (&(current->process_semaphore));
   
   
