@@ -124,12 +124,13 @@ void init_process( process_t* proc ) {
 pid_t
 process_execute (const char *buf) 
 {
-  char *fn_copy;
+  char *fn_copy, *fn_copy_name;
   process_t *p;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
+  fn_copy_name = palloc_get_page (0);
   if (fn_copy == NULL)
     return PID_ERROR;
 
@@ -142,17 +143,21 @@ process_execute (const char *buf)
   }  
 
   strlcpy (fn_copy, buf, PGSIZE);
+  strlcpy (fn_copy_name, buf, PGSIZE);
 
   /* Initialize process and add it into the hash table. */
   init_process(p);
   insert_process(p);
 
+
+
   char* save_ptr;
-  char* file_name = strtok_r( buf, " ", &save_ptr );
+  char* file_name = strtok_r( fn_copy_name, " ", &save_ptr );
 
   /* Create a new thread to execute FILE_NAME. */
   tid_t tid = thread_process_create ( file_name, PRI_DEFAULT, start_process, fn_copy, p);
 
+  palloc_free_page(fn_copy_name);
 
   if (tid == TID_ERROR) {
     palloc_free_page(fn_copy);
