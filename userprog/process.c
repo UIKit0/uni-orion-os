@@ -188,7 +188,6 @@ start_process (void *file_name_)
 
   char* save_ptr;
   char* file_name_exe = strtok_r( file_name, " ", &save_ptr );
-  printf( "%s\n", save_ptr );
   
   success = load (file_name_exe, &if_.eip, &if_.esp);
 
@@ -200,17 +199,13 @@ start_process (void *file_name_)
     int argumentsAddress[ 100 ];
     int argumentsCount = 0;
 
-    printf( "ESP : %x\n", if_.esp );
-
+    
     while( !*(--save_ptr) ) *save_ptr = ' ';
     save_ptr = file_name;
 
     for( token = strtok_r( NULL, " ", &save_ptr ); token != NULL;
-	 token = strtok_r( NULL, " ", &save_ptr ) )
+	       token = strtok_r( NULL, " ", &save_ptr ) )
     {
-      printf( "%s\n", token );
-      printf( "%d\n", strlen( token ) );
-
       if_.esp -= 1;
       memcpy( if_.esp, "\0", 1 );
       
@@ -224,7 +219,6 @@ start_process (void *file_name_)
     }
 
     sum_of_length %= 4;
-    printf( "Sume = %d\n", sum_of_length );
     if_.esp -= sum_of_length;
     memcpy( if_.esp, "\0", sum_of_length );
        
@@ -232,19 +226,14 @@ start_process (void *file_name_)
     if_.esp -= 4;
     memcpy( if_.esp, "\0\0\0\0", 4 );
 
-    hex_dump( 0 , if_.esp,  30, false );
-
     int i = 0;
 
     for ( i = argumentsCount - 1; i > -1; --i )
     {
       if_.esp -= 4;
       memcpy( if_.esp, &argumentsAddress[ i ], 4 );
-      printf( "%x\n", argumentsAddress[ i ] );
     }
-    hex_dump( 0 , if_.esp,  30, false );
-    printf( "\n" );
- 
+    
     int argvAddress = if_.esp;
     if_.esp -= 4;
     memcpy( if_.esp, &argvAddress, 4 );
@@ -254,8 +243,7 @@ start_process (void *file_name_)
     memcpy( if_.esp, &argumentsCount, 4 );
 
     if_.esp -= 4;
-    memcpy( if_.esp, "\0\0\0\0", 4 );
-    hex_dump( 0, if_.esp, 30, false );
+    memcpy( if_.esp, "\0\0\0\0", 4 );   
     
   }
   
