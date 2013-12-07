@@ -6,6 +6,7 @@
 #include "userprog/process.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "threads/vaddr.h"
 
 #define READ	1
 #define WRITE 	2
@@ -31,14 +32,71 @@ void syscall_init (void) {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-/* Verify a given address belongs to safe user space. */
-static bool is_valid_user_address(char* address UNUSED) {
-	return true;
+/* Verify a given address is safe for read */
+static bool is_valid_user_address_for_read(char* address UNUSED) {
+	int result;
+	asm ("movl $1f, %0; movzbl %1, %0; 1:" : "=&a" (result) : "m" (*address));
+	return result != -1;
+}
+
+
+/* Verify a given address is safe for write */
+static bool is_valid_user_address_for_write(char* address UNUSED) {
+	uint8_t byte = 0;
+	int error_code;
+	asm ("movl $1f, %0; movb %b2, %1; 1:"
+	: "=&a" (error_code), "=m" (*address) : "q" (byte));
+	return error_code != -1;
 }
 
 /* Verify a given address range belongs to safe user space. */
-static bool is_valid_user_address_range(char* address UNUSED, int size UNUSED) {
-	return true;
+static bool is_valid_user_string_read(char* address UNUSED) {
+	char *p;
+	for(p = address;; ++p) {
+		if(is_user_vaddr(p) && is_valid_user_address_for_read(p)) {
+			if(*p == 0)			
+				return true;
+		}
+		else {
+			return false;
+		}
+	}
+	return false;
+}
+
+/* Verify a given address range belongs to safe user space. */
+static bool is_valid_user_address_range_read(char* address UNUSED, int size UNUSED) {
+	char *end = address + size;
+	
+	if(!is_user_vaddr(end) || !is_user_vaddr(address))
+		return false;
+	
+	char *p;
+	for(p = address; p < end; ++p)
+		if(!is_valid_user_address_for_read(p))
+			return false;
+
+	return true;	
+}
+
+/* Verify a given address is safe for write */
+static bool is_valid_user_address_range_write(char* address UNUSED, int size UNUSED) {
+	char *end = address + size;
+
+	if(!is_user_vaddr(end) || !is_user_vaddr(address))
+		return false;
+
+	char *p;
+	for(p = address; p < end; ++p)
+		if(!is_valid_user_address_for_write(p))
+			return false;
+	return true;	
+}
+
+
+
+static void syscall_halt(struct intr_frame *f) {
+	f->eax = 0;
 }
 
 /*
@@ -114,7 +172,7 @@ static struct list_elem *fd_get_list_elem(int fd) {
 
 /* Slap the user and kill his process. */
 static void kill_current_process(void) {
-	process_current()->exit_code = 0x0BADF;
+	process_current()->exit_code = -1;
 	thread_exit();
 }
 
@@ -134,7 +192,7 @@ static void syscall_create(struct intr_frame *f) {
 	char* file_name = (char*) ((int*)f->esp)[1];
 	int initial_size = ((int*)f->esp)[2];
 
-	if (!is_valid_user_address(file_name)) {
+	if (!is_valid_user_string_read(file_name)) {
 		kill_current_process();
 		return;
 	}
@@ -147,7 +205,7 @@ static void syscall_create(struct intr_frame *f) {
 static void syscall_remove(struct intr_frame *f) {
 	char *file_name = (char*) ((int*)f->esp)[1];
 
-	if (!is_valid_user_address(file_name)) {
+	if (!is_valid_user_string_read(file_name)) {
 		kill_current_process();
 		return;
 	}
@@ -160,7 +218,7 @@ static void syscall_remove(struct intr_frame *f) {
 static void syscall_open(struct intr_frame *f) {
 	char *file_name = (char*) ((int*)f->esp)[1];
 
-	if (!is_valid_user_address(file_name)) {
+	if (!is_valid_user_string_read(file_name)) {
 		kill_current_process();
 		return;
 	}
@@ -201,7 +259,7 @@ static void syscall_read(struct intr_frame *f) {
 	char* buffer = (char*)((int*)f->esp)[2];
 	unsigned int size = (unsigned int) ((int*)f->esp)[3];
 
-	if (!is_valid_user_address_range(buffer, size)) {
+	if (!is_valid_user_address_range_write(buffer, size)) {
 		kill_current_process();
 		return;
 	}
@@ -225,11 +283,11 @@ void syscall_write(struct intr_frame *f) {
 	char *buffer = (char*) ((int*)f->esp)[2];
 	unsigned int size = (unsigned int) ((int*)f->esp)[3];
 
-	if (!is_valid_user_address_range(buffer, size)) {
+	if (!is_valid_user_address_range_read(buffer, size)) {
 		kill_current_process();
 		return;
 	}
-
+	
 	if (!fd_is_valid(fd, WRITE)) {
 		f->eax = 0;
 		return;
@@ -286,17 +344,26 @@ static void syscall_close(struct intr_frame *f) {
 
 /* Start another process. */
 void syscall_exec(struct intr_frame *f) {
-	//check buffers here
 	char *buf = (char*) ((int*)f->esp)[1];
+	if (!is_valid_user_string_read(buf)) {
+		kill_current_process();
+		f->eax = -1;
+		return;		
+	}	
 	f->eax = process_execute(buf);
 }
 
 static void syscall_handler (struct intr_frame *f) 
 {
+	if(!is_valid_user_address_range_read(f->esp, 4)) {
+		kill_current_process();		
+		return;
+	}
+
   	int syscall_no = ((int*)f->esp)[0];	
 	switch (syscall_no) {
 		case SYS_HALT:
-			//syscall_halt(f);
+			syscall_halt(f);
 			break;
 		case SYS_EXIT:
 			syscall_exit(f);
