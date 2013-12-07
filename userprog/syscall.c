@@ -57,7 +57,7 @@ static bool is_valid_file_descriptor(int fd, int direction) {
 /* Slap the user and kill his process. */
 static void kill_current_process() {
 	process_current()->exit_code = 0x0BADF;
-	thread_exit();	
+	thread_exit();
 }
 
 /* Terminate this process. */

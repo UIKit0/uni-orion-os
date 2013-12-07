@@ -165,7 +165,8 @@ process_execute (const char *file_name)
 
   sema_down (&(p->process_semaphore));
   
-  if( find_process(p->ppid) == NULL ) {
+  if( p->pid == PID_ERROR ) {
+    delete_process(p);
     palloc_free_page(p);
     return PID_ERROR;
   }
@@ -194,8 +195,8 @@ start_process (void *file_name_)
   process_t *p = process_current();
   
   if (!success) {
-    delete_process(p);
-    sema_up (&(p->process_semaphore));
+    thread_current()->pid = p->pid = PID_ERROR;
+    sema_up (&(p->process_semaphore));    
     thread_exit ();
   } else {
     sema_up (&(p->process_semaphore)); //we need this duplicate code because thread_exit will trigger a schedule.
@@ -260,11 +261,20 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+  process_t *current;
   uint32_t *pd;
-  process_t * current = process_current();
-  
-  printf( "%s: exit(%d)\n", cur->name, current->exit_code);
-  sema_up (&(current->process_semaphore));
+
+  int exit_code;
+
+  if(cur->pid == PID_ERROR) {
+    exit_code = PID_ERROR;
+  }
+  else {
+    current = process_current();
+    exit_code = current->exit_code;
+    sema_up (&(current->process_semaphore));
+  }
+  printf( "%s: exit(%d)\n", cur->name, exit_code);
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -282,8 +292,6 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-
-
 }
 
 /* Sets up the CPU for running user code in the current
