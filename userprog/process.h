@@ -34,8 +34,4 @@ void process_init(void);
 process_t * process_current(void);
 process_t * find_process(pid_t pid);
 
-char* firstSubstring( char* buf, const char delimitator );
-
-
-
 #endif /* userprog/process.h */
