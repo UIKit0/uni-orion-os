@@ -202,6 +202,9 @@ start_process (void *file_name_)
 
     printf( "ESP : %x\n", if_.esp );
 
+    while( !*(--save_ptr) ) *save_ptr = ' ';
+    save_ptr = file_name;
+
     for( token = strtok_r( NULL, " ", &save_ptr ); token != NULL;
 	 token = strtok_r( NULL, " ", &save_ptr ) )
     {
