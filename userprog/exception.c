@@ -86,8 +86,8 @@ kill (struct intr_frame *f)
     case SEL_UCSEG:
       /* User's code segment, so it's a user exception, as we
          expected.  Kill the user process.  */
-    //  printf ("%s: dying due to interrupt %#04x (%s).\n",
-      //        thread_name (), f->vec_no, intr_name (f->vec_no));
+      printf ("%s: dying due to interrupt %#04x (%s).\n",
+              thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
       thread_exit (); 
 
@@ -96,16 +96,16 @@ kill (struct intr_frame *f)
          Kernel code shouldn't throw exceptions.  (Page faults
          may cause kernel exceptions--but they shouldn't arrive
          here.)  Panic the kernel to make the point.  */
-      //intr_dump_frame (f);
-      //PANIC ("Kernel bug - unexpected interrupt in kernel"); 
-      break;
+      intr_dump_frame (f);
+      PANIC ("Kernel bug - unexpected interrupt in kernel"); 
+
     default:
       /* Some other code segment?  Shouldn't happen.  Panic the
          kernel. */
-      //printf ("Interrupt %#04x (%s) in unknown segment %04x\n",
-        //     f->vec_no, intr_name (f->vec_no), f->cs);
+      printf ("Interrupt %#04x (%s) in unknown segment %04x\n",
+             f->vec_no, intr_name (f->vec_no), f->cs);
       thread_exit ();
-    }      
+    }
 }
 
 /* Page fault handler.  This is a skeleton that must be filled in
@@ -140,6 +140,9 @@ page_fault (struct intr_frame *f)
      be assured of reading CR2 before it changed). */
   intr_enable ();
 
+
+
+
   /* Count page faults. */
   page_fault_cnt++;
 
@@ -148,17 +151,21 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
+  f->eip = f->eax;
+  f->eax = -1;
+  thread_exit ();
+  return;
+  
+  
+
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  /* printf ("Page fault at %p: %s error %s page in %s context.\n",
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
-          user ? "user" : "kernel"); */
-
-  f->eip = f->eax;
-  f->eax = -1;    
+          user ? "user" : "kernel");
   kill (f);
 }
 
