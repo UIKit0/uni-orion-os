@@ -122,12 +122,20 @@ void init_process( process_t* proc ) {
   sema_init( &(proc->process_semaphore), 0);
 }
 
+char* firstSubstring( char* buf, const char delimitator )
+{ 
+  char* save_ptr;
+  strtok_r( buf, &delimitator, &save_ptr );
+  printf( "%s\n", buf );
+  return buf;
+}
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 pid_t
-process_execute (const char *file_name) 
+process_execute (const char *buf) 
 {
   char *fn_copy;
   process_t *p;
@@ -146,14 +154,17 @@ process_execute (const char *file_name)
     return PID_ERROR;
   }  
 
-  strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy (fn_copy, buf, PGSIZE);
 
   /* Initialize process and add it into the hash table. */
   init_process(p);
   insert_process(p);
 
+  char* save_ptr;
+  char* file_name = strtok_r( buf, " ", &save_ptr );
+
   /* Create a new thread to execute FILE_NAME. */
-  tid_t tid = thread_process_create (file_name, PRI_DEFAULT, start_process, fn_copy, p);
+  tid_t tid = thread_process_create ( file_name, PRI_DEFAULT, start_process, fn_copy, p);
 
 
   if (tid == TID_ERROR) {
@@ -187,8 +198,77 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
 
+  char* save_ptr;
+  char* file_name_exe = strtok_r( file_name, " ", &save_ptr );
+  printf( "%s\n", save_ptr );
+  
+  success = load (file_name_exe, &if_.eip, &if_.esp);
+
+  if ( success )
+  {
+    char* token;
+    int sum_of_length = 0;
+
+    int argumentsAddress[ 100 ];
+    int argumentsCount = 0;
+
+    printf( "ESP : %x\n", if_.esp );
+
+    for( token = strtok_r( NULL, " ", &save_ptr ); token != NULL;
+	 token = strtok_r( NULL, " ", &save_ptr ) )
+    {
+      printf( "%s\n", token );
+      printf( "%d\n", strlen( token ) );
+
+      if_.esp -= 1;
+      memcpy( if_.esp, "\0", 1 );
+      
+      if_.esp -= strlen( token );
+      memcpy( if_.esp, token, strlen( token ) );
+
+      argumentsAddress[ argumentsCount ] = (int)if_.esp;//
+      argumentsCount++;
+
+      sum_of_length += strlen( token ) + 1;
+    }
+
+    sum_of_length %= 4;
+    printf( "Sume = %d\n", sum_of_length );
+    if_.esp -= sum_of_length;
+    memcpy( if_.esp, "\0", sum_of_length );
+       
+
+    if_.esp -= 4;
+    memcpy( if_.esp, "\0\0\0\0", 4 );
+
+    hex_dump( 0 , if_.esp,  30, false );
+
+    int i = 0;
+
+    for ( i = argumentsCount - 1; i > -1; --i )
+    {
+      if_.esp -= 4;
+      memcpy( if_.esp, &argumentsAddress[ i ], 4 );
+      printf( "%x\n", argumentsAddress[ i ] );
+    }
+    hex_dump( 0 , if_.esp,  30, false );
+    printf( "\n" );
+ 
+    int argvAddress = if_.esp;
+    if_.esp -= 4;
+    memcpy( if_.esp, &argvAddress, 4 );
+
+
+    if_.esp -= 4;
+    memcpy( if_.esp, &argumentsCount, 4 );
+
+    if_.esp -= 4;
+    memcpy( if_.esp, "\0\0\0\0", 4 );
+    hex_dump( 0, if_.esp, 30, false );
+    
+  }
+  
   /* If load failed, quit. */
   palloc_free_page (file_name);
 
@@ -615,7 +695,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }
