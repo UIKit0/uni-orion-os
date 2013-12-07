@@ -163,9 +163,9 @@ process_execute (const char *buf)
 
   sema_down (&(p->process_semaphore));
   
-  if( p->pid == PID_ERROR ) {
+  if( p->status == INVALID ) {
     delete_process(p);
-    palloc_free_page(p);
+    palloc_free_page(p);    
     return PID_ERROR;
   }
   return p->pid;
@@ -252,12 +252,11 @@ start_process (void *file_name_)
 
   process_t *p = process_current();
   
-  if (!success) {
-    thread_current()->pid = p->pid = PID_ERROR;
-    sema_up (&(p->process_semaphore));    
+  if (!success) {    
+    p->status = INVALID;    
     thread_exit ();
-  } else {
-    sema_up (&(p->process_semaphore)); //we need this duplicate code because thread_exit will trigger a schedule.
+  } else {    
+    sema_up (&(p->process_semaphore));
   }
 
   /* Start the user process by simulating a return from an
@@ -287,11 +286,15 @@ process_wait (pid_t child_tid)
   process_t *child = find_process(child_tid);
   process_t *current = process_current();
 
-  if(child == NULL)
+  if(child == NULL) {
+    lock_release(&process_wait_lock);
     return -1;
+  }
 
-  if(current->pid != child->ppid) 
+  if(current->pid != child->ppid) {
+    lock_release(&process_wait_lock);
     return -1;
+  }
 
   int exit_code = -1;
 
@@ -308,7 +311,7 @@ process_wait (pid_t child_tid)
     exit_code = child->exit_code;
     delete_process(child);
     palloc_free_page(child);
-  }
+  }  
   lock_release(&process_wait_lock);
   
   return exit_code;
@@ -318,21 +321,20 @@ process_wait (pid_t child_tid)
 void
 process_exit (void)
 {
-  struct thread *cur = thread_current ();
-  process_t *current;
+  struct thread * cur = thread_current();
+  process_t *current = process_current();
   uint32_t *pd;
 
   int exit_code;
 
-  if(cur->pid == PID_ERROR) {
+  if(current->status == INVALID) {
     exit_code = PID_ERROR;
   }
   else {
-    current = process_current();
     exit_code = current->exit_code;
-    sema_up (&(current->process_semaphore));
-  }
-  printf( "%s: exit(%d)\n", cur->name, exit_code);
+  }  
+  sema_up (&(current->process_semaphore));
+  
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

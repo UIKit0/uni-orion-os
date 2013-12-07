@@ -14,7 +14,8 @@ typedef struct process_t process_t;
 
 enum pstatus_t {
 	ALIVE, 
-	KILLED, 
+	KILLED,
+	INVALID,
 	DEAD
 };
 
