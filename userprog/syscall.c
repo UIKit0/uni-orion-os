@@ -176,6 +176,7 @@ static void fd_remove_file(int fd) {
 	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); ){
 		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
 		e = list_next(e);
+		list_remove(&link->l_elem);		
 		if (link->fd == fd) {
 			free(link);
 		}
