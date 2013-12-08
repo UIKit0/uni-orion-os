@@ -175,10 +175,11 @@ static void fd_remove_file(int fd) {
 	struct list_elem *e;
 	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); ){
 		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
-		e = list_next(e);
-		list_remove(&link->l_elem);		
+		e = list_next(e);		
 		if (link->fd == fd) {
-			free(link);
+			list_remove(&link->l_elem);
+			free(link);			
+			return;
 		}
 	}	
 }
@@ -233,6 +234,12 @@ static void syscall_open(struct intr_frame *f) {
 	char *file_name = (char*) ((int*)f->esp)[1];
 	process_t *current = process_current();
 
+	if(current->num_of_opened_files >= MAX_OPEN_FILES_PER_PROCESS) {
+		f->eax = -1;
+		return;
+	}
+	
+
 	if (!is_valid_user_string_read(file_name)) {
 		kill_current_process();
 		return;
@@ -241,7 +248,7 @@ static void syscall_open(struct intr_frame *f) {
 	
 
 	struct file *file = filesys_open(file_name);
-	if (file == NULL || current->num_of_opened_files >= MAX_OPEN_FILES_PER_PROCESS){
+	if (file == NULL){
 		f->eax = -1;
 		return;
 	}
@@ -251,6 +258,13 @@ static void syscall_open(struct intr_frame *f) {
 	int fd = fd_create();
 
 	struct fd_list_link *link = (struct fd_list_link *)malloc(sizeof(struct fd_list_link));
+
+	if(link == NULL) {
+		file_close(file);
+		f->eax = -1;
+		return;
+	}
+
 	link->fd = fd;
 	link->file = file;
 	list_push_back(&current->owned_file_descriptors, &(link->l_elem));

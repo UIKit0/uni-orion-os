@@ -25,6 +25,8 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 
+static struct lock deny_write_lock;
+static struct lock hash_lock;
 static struct lock process_wait_lock;
 static struct lock pid_lock;
 static struct hash process_table;
@@ -53,16 +55,23 @@ bool process_hash_less_func (const struct hash_elem *a, const struct hash_elem *
 process_t * find_process(pid_t pid) {
   process_t dummy;
   dummy.pid = pid;
+  lock_acquire(&hash_lock);
   struct hash_elem *result = hash_find(&process_table, &(dummy.h_elem));
+  lock_release(&hash_lock);
   return result != NULL ? hash_entry(result, process_t, h_elem) : NULL;
 }
 
 void delete_process(process_t *proc) {
+  lock_acquire(&hash_lock);  
   hash_delete(&process_table, &(proc->h_elem));
+  free(proc);
+  lock_release(&hash_lock);
 }
 
 void insert_process(process_t *proc) {
-  hash_insert(&process_table, &(proc->h_elem));
+  lock_acquire(&hash_lock);
+  hash_insert(&process_table, &(proc->h_elem));  
+  lock_release(&hash_lock);
 }
 
 process_t *process_current(void) {
@@ -79,12 +88,14 @@ process_t *process_current(void) {
 void process_init(void) {
   lock_init(&process_wait_lock);
   lock_init(&pid_lock);
+  lock_init(&hash_lock);  
+  lock_init(&deny_write_lock);
   hash_init(&process_table, &process_hash_func,
     process_hash_less_func, NULL);
 
 
   process_t *p; //initial process. Father of all.
-  p = palloc_get_page (0);  
+  p = (process_t *)malloc (sizeof(process_t));
   ASSERT(p);
 
   init_master_process(p);    
@@ -151,7 +162,11 @@ process_execute (const char *buf)
     return PID_ERROR;
 
 
-  p = palloc_get_page (0);
+  p = (process_t *)malloc (sizeof(process_t));
+
+  if(p == NULL) {
+    return PID_ERROR;
+  }
 
   if(p == NULL) {
     palloc_free_page (fn_copy); //ensure that we are not leaking pages
@@ -177,16 +192,14 @@ process_execute (const char *buf)
 
   if (tid == TID_ERROR) {
     palloc_free_page(fn_copy);
-    delete_process(p);
-    palloc_free_page(p);
+    delete_process(p);    
     return PID_ERROR;
   }
 
   sema_down (&(p->process_semaphore));
   
   if( p->status == INVALID ) {
-    delete_process(p);
-    palloc_free_page(p);    
+    delete_process(p);    
     return PID_ERROR;
   }
   return p->pid;
@@ -302,18 +315,14 @@ start_process (void *file_name_)
 int
 process_wait (pid_t child_tid) 
 {
-  lock_acquire(&process_wait_lock);
-
   process_t *child = find_process(child_tid);
   process_t *current = process_current();
 
   if(child == NULL) {
-    lock_release(&process_wait_lock);
     return -1;
   }
 
   if(current->pid != child->ppid) {
-    lock_release(&process_wait_lock);
     return -1;
   }
 
@@ -326,15 +335,10 @@ process_wait (pid_t child_tid)
     exit_code = child->exit_code;
   }
   else if(child->status == ALIVE) {    
-    lock_release(&process_wait_lock);    
     sema_down (&(child->process_semaphore));
-    lock_acquire(&process_wait_lock);
     exit_code = child->exit_code;
-    delete_process(child);
-    palloc_free_page(child);
+    delete_process(child);    
   }  
-  lock_release(&process_wait_lock);
-  
   return exit_code;
 }
 
@@ -357,8 +361,10 @@ process_exit (void)
 
   free_fd_list();
   if(current->exe_file != NULL) {
-    file_allow_write(current->exe_file);
+    lock_acquire(&deny_write_lock);
+    file_allow_write(current->exe_file);    
     file_close(current->exe_file);
+    lock_release(&deny_write_lock);
   }
   //other cleanup here please
   
@@ -490,15 +496,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  file = process_current()->exe_file = filesys_open (file_name);
+  lock_acquire(&deny_write_lock);  
+  process_current()->exe_file = file = filesys_open (file_name);
     
   if (file == NULL) 
-    {
+  {
       printf ("load: %s: open failed\n", file_name);
+      lock_release(&deny_write_lock);
       goto done; 
-    }
-
+  }
   file_deny_write(file);
+  lock_release(&deny_write_lock);
+  
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr

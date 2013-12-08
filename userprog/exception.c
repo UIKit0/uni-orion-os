@@ -153,7 +153,8 @@ page_fault (struct intr_frame *f)
 
   f->eip = f->eax;
   f->eax = -1;
-  thread_exit ();
+  if(user)
+    thread_exit ();
   return;
   
   
