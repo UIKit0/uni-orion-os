@@ -231,17 +231,21 @@ static void syscall_remove(struct intr_frame *f) {
 /* Open a file. */
 static void syscall_open(struct intr_frame *f) {
 	char *file_name = (char*) ((int*)f->esp)[1];
+	process_t *current = process_current();
 
 	if (!is_valid_user_string_read(file_name)) {
 		kill_current_process();
 		return;
 	}
 
+	
+
 	struct file *file = filesys_open(file_name);
-	if (file == NULL){
+	if (file == NULL || current->num_of_opened_files >= MAX_OPEN_FILES_PER_PROCESS){
 		f->eax = -1;
 		return;
 	}
+
 
 	// get a new file_descriptor
 	int fd = fd_create();
@@ -249,7 +253,8 @@ static void syscall_open(struct intr_frame *f) {
 	struct fd_list_link *link = (struct fd_list_link *)malloc(sizeof(struct fd_list_link));
 	link->fd = fd;
 	link->file = file;
-	list_push_back(&process_current()->owned_file_descriptors, &(link->l_elem));
+	list_push_back(&current->owned_file_descriptors, &(link->l_elem));
+	current->num_of_opened_files++;
 
 	f->eax = fd;
 }
@@ -347,10 +352,13 @@ static void syscall_tell(struct intr_frame *f) {
 /* Close a file. */
 static void syscall_close(struct intr_frame *f) {
 	int fd = ((int*)f->esp)[1];
+	process_t *current = process_current();
 
 	if (!fd_is_valid(fd, READ | WRITE) || fd == STDIN || fd == STDOUT) {
 		return;
 	}
+	
+	current->num_of_opened_files--;
 	file_close(fd_get_file(fd));
 	fd_remove_file(fd);
 }

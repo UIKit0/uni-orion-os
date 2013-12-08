@@ -84,7 +84,7 @@ void process_init(void) {
 
 
   process_t *p; //initial process. Father of all.
-  p = palloc_get_page (0);
+  p = palloc_get_page (0);  
   ASSERT(p);
 
   init_master_process(p);    
@@ -108,6 +108,7 @@ void init_master_process( process_t* proc) {
   proc->exit_code = -1;
   proc->exe_file = NULL; 
   list_init( &proc->owned_file_descriptors);
+  proc->num_of_opened_files = 0;
   //we don't really need the process_lock for the master process  
 }
 
@@ -118,6 +119,7 @@ void init_process( process_t* proc ) {
   proc->exit_code = -1;
   proc->exe_file = NULL;
   list_init( &proc->owned_file_descriptors);
+  proc->num_of_opened_files = 0;
   sema_init( &(proc->process_semaphore), 0);
 }
 

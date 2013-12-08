@@ -8,7 +8,7 @@
 #include "userprog/common.h"
 
 
-#define MAX_OPEN_FILES_PER_PROCESS 32
+#define MAX_OPEN_FILES_PER_PROCESS 16
 
 struct process_t {
 	/* process id of this process */
@@ -19,6 +19,8 @@ struct process_t {
 	enum pstatus_t status;
 	/* the code returned by the process at exit */
 	int exit_code;
+	/* number of opened files */
+	int num_of_opened_files;
 	/* List of file descriptors. */
 	struct list owned_file_descriptors;
 	/* Pointer to element in hash table */
