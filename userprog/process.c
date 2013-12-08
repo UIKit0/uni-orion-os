@@ -19,6 +19,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/synch.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -36,7 +37,7 @@ void insert_process(process_t *process);
 pid_t allocate_pid (void);
 void init_process( process_t* proc );
 void init_master_process( process_t* proc );
-void close_all_files(void);
+void free_fd_list(void);
 
 unsigned process_hash_func (const struct hash_elem *e, void *aux UNUSED) {
   process_t *p = hash_entry(e, process_t, h_elem);
@@ -106,7 +107,7 @@ void init_master_process( process_t* proc) {
   proc->status = ALIVE;
   proc->exit_code = -1;
   proc->exe_file = NULL; 
-  memset(proc->owned_file_descriptors, 0x0, sizeof(proc->owned_file_descriptors));
+  list_init( &proc->owned_file_descriptors);
   //we don't really need the process_lock for the master process  
 }
 
@@ -116,18 +117,18 @@ void init_process( process_t* proc ) {
   proc->status = ALIVE;
   proc->exit_code = -1;
   proc->exe_file = NULL;
-  memset(proc->owned_file_descriptors, 0x0, sizeof(proc->owned_file_descriptors));
+  list_init( &proc->owned_file_descriptors);
   sema_init( &(proc->process_semaphore), 0);
 }
 
-void close_all_files(void) {
-  fd_entry *table = process_current()->owned_file_descriptors;
-  int i;
-  for(i = 0; i < MAX_OPEN_FILES_PER_PROCESS; ++i) {
-    if(table[i].fd != 0) {
-      file_close(table[i].file);            
-    }
-  }
+void free_fd_list(void) {
+  struct list* file_descriptors = &process_current()->owned_file_descriptors;
+  struct list_elem *e;
+    for (e = list_begin(file_descriptors); e != list_end(file_descriptors);){
+      struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
+      e = list_next(e);
+      free(link);
+    }    
 }
 
 /* Starts a new thread running a user program loaded from
@@ -252,7 +253,7 @@ start_process (void *file_name_)
       memcpy( if_.esp, &argumentsAddress[ i ], 4 );
     }
     
-    int argvAddress = if_.esp;
+    int argvAddress = (int)if_.esp;
     if_.esp -= 4;
     memcpy( if_.esp, &argvAddress, 4 );
 
@@ -352,15 +353,13 @@ process_exit (void)
     exit_code = current->exit_code;
   }
 
-  close_all_files();
-  /*
-  */
+  free_fd_list();
   if(current->exe_file != NULL) {
     file_allow_write(current->exe_file);
     file_close(current->exe_file);
   }
   //other cleanup here please
-
+  
   printf("%s: exit(%d)\n", cur->name, exit_code);
   sema_up (&(current->process_semaphore));
   

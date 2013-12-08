@@ -7,6 +7,7 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 #define READ	1
 #define WRITE 	2
@@ -102,17 +103,19 @@ static void syscall_halt(struct intr_frame *f) {
 /*
  *	Creates a new, unused, file descriptor.
  */
-static int fd_create(void) {
-	fd_entry *table = process_current()->owned_file_descriptors;
-	
-	int max_fd = 2, i;
-	
-	for(i = 0; i < MAX_OPEN_FILES_PER_PROCESS; ++i)
-		if(table[i].fd > max_fd)
-			max_fd = table[i].fd;
-    
-    return max_fd + 1;
+ static int fd_create(void) {
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+	int max_fd = 2;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+		int fd = list_entry(e, struct fd_list_link, l_elem)->fd;
+		if (fd > max_fd) {
+			max_fd = fd;
+		}
+	}
+	return max_fd + 1;
 }
+
 
 /* 
  * Returns true if the file descriptor was assigned to a file opened by this process. 
@@ -125,12 +128,15 @@ static bool fd_is_valid(int fd, int direction) {
 	if (fd == STDIN && (direction & READ) != 0) {
 		return true;
 	}
-	fd_entry *table = process_current()->owned_file_descriptors;
-	int i;
-	for(i = 0; i < MAX_OPEN_FILES_PER_PROCESS; ++i)
-		if(table[i].fd == fd)
-			return true;
 
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+		int current_fd = list_entry(e, struct fd_list_link, l_elem)->fd;
+		if (current_fd == fd) {
+			return true;
+		}
+	}
     return false;
 }
 
@@ -138,39 +144,44 @@ static bool fd_is_valid(int fd, int direction) {
  *	Returns the file structured managed by this file descriptor.
  */
 static struct file *fd_get_file(int fd) {
-	fd_entry *table = process_current()->owned_file_descriptors;
-	int i;
-	for(i = 0; i < MAX_OPEN_FILES_PER_PROCESS; ++i)
-		if(table[i].fd == fd)
-			return table[i].file;
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
+		if (link->fd == fd) {
+			return link->file;
+		}
+	}
 	return NULL;
 }
 
-static void add_file(fd_entry *elem) {
-	fd_entry *table = process_current()->owned_file_descriptors;
-
-	int i;
-	for(i = 0; i < MAX_OPEN_FILES_PER_PROCESS; ++i) {
-		if(table[i].fd == 0) {
-			table[i].fd = elem->fd;
-			table[i].file = elem->file;
-			return;
+/*
+ *	Returns the list element that links this file descriptor;
+ */
+static struct list_elem *fd_get_list_elem(int fd) {
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
+		if (link->fd == fd) {
+			return &link->l_elem;
 		}
 	}
+	return NULL;
 }
 
-static void remove_file(int fd) {
-	fd_entry *table = process_current()->owned_file_descriptors;
-
-	int i;
-	for(i = 0; i < MAX_OPEN_FILES_PER_PROCESS; ++i) {
-		if(table[i].fd == fd) {
-			table[i].fd = 0;
-			table[i].file = 0;
-			return;
+static void fd_remove_file(int fd) {
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); ){
+		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
+		e = list_next(e);
+		if (link->fd == fd) {
+			free(link);
 		}
-	}
+	}	
 }
+
 
 /* Slap the user and kill his process. */
 static void kill_current_process(void) {
@@ -234,10 +245,10 @@ static void syscall_open(struct intr_frame *f) {
 	// get a new file_descriptor
 	int fd = fd_create();
 
-	struct fd_entry entry;
-	entry.fd = fd;
-	entry.file = file;
-	add_file(&entry);
+	struct fd_list_link *link = (struct fd_list_link *)malloc(sizeof(struct fd_list_link));
+	link->fd = fd;
+	link->file = file;
+	list_push_back(&process_current()->owned_file_descriptors, &(link->l_elem));
 
 	f->eax = fd;
 }
@@ -339,9 +350,8 @@ static void syscall_close(struct intr_frame *f) {
 	if (!fd_is_valid(fd, READ | WRITE) || fd == STDIN || fd == STDOUT) {
 		return;
 	}
-
 	file_close(fd_get_file(fd));
-	remove_file(fd);
+	fd_remove_file(fd);
 }
 
 /* Start another process. */
