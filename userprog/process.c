@@ -25,7 +25,7 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 
-static struct lock deny_write_lock;
+static struct lock file_sys_lock;
 static struct lock hash_lock;
 static struct lock process_wait_lock;
 static struct lock pid_lock;
@@ -89,7 +89,7 @@ void process_init(void) {
   lock_init(&process_wait_lock);
   lock_init(&pid_lock);
   lock_init(&hash_lock);  
-  lock_init(&deny_write_lock);
+  lock_init(&file_sys_lock);
   hash_init(&process_table, &process_hash_func,
     process_hash_less_func, NULL);
 
@@ -223,7 +223,9 @@ start_process (void *file_name_)
   char* save_ptr;
   char* file_name_exe = strtok_r( file_name, " ", &save_ptr );
   
+  lock_acquire(&file_sys_lock);
   success = load (file_name_exe, &if_.eip, &if_.esp);
+  lock_release(&file_sys_lock);
 
   if ( success )
   {
@@ -358,14 +360,13 @@ process_exit (void)
   else {
     exit_code = current->exit_code;
   }
-
+  lock_acquire(&file_sys_lock);
   free_fd_list();
-  if(current->exe_file != NULL) {
-    lock_acquire(&deny_write_lock);
+  if(current->exe_file != NULL) {    
     file_allow_write(current->exe_file);    
-    file_close(current->exe_file);
-    lock_release(&deny_write_lock);
+    file_close(current->exe_file);    
   }
+  lock_release(&file_sys_lock);
   //other cleanup here please
   
   printf("%s: exit(%d)\n", cur->name, exit_code);
@@ -496,18 +497,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  lock_acquire(&deny_write_lock);  
-  process_current()->exe_file = file = filesys_open (file_name);
+  file = filesys_open (file_name);
     
   if (file == NULL) 
   {
       printf ("load: %s: open failed\n", file_name);
-      lock_release(&deny_write_lock);
       goto done; 
   }
-  file_deny_write(file);
-  lock_release(&deny_write_lock);
   
+   
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -591,6 +589,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   success = true;
 
  done:
+  if(success) {
+    process_current()->exe_file = file;
+    file_deny_write(file);
+  }
+  else {
+    file_close(file);
+  }
   /* We arrive here whether the load is successful or not. */
   return success;
 }
