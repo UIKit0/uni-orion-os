@@ -7,6 +7,13 @@
 #include "threads/thread.h"
 #include "userprog/common.h"
 
+struct fd_entry {
+	int fd;
+	struct file *file;
+};
+typedef struct fd_entry fd_entry;
+
+#define MAX_OPEN_FILES_PER_PROCESS 32
 
 struct process_t {
 	/* process id of this process */
@@ -18,7 +25,7 @@ struct process_t {
 	/* the code returned by the process at exit */
 	int exit_code;
 	/* List of file descriptors. */
-	struct list owned_file_descriptors;
+	fd_entry owned_file_descriptors[MAX_OPEN_FILES_PER_PROCESS];
 	/* Pointer to element in hash table */
 	struct hash_elem h_elem;
 	/* wating semaphore instead of thread_block/unblock hackarounds */
@@ -27,12 +34,7 @@ struct process_t {
 	struct file * exe_file;
 };
 
-struct fd_list_link {
-	struct list_elem l_elem;
 
-	int fd;
-	struct file *file;
-};
 
 pid_t process_execute (const char *file_name);
 int process_wait (pid_t);

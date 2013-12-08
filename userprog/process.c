@@ -36,6 +36,7 @@ void insert_process(process_t *process);
 pid_t allocate_pid (void);
 void init_process( process_t* proc );
 void init_master_process( process_t* proc );
+void close_all_files(void);
 
 unsigned process_hash_func (const struct hash_elem *e, void *aux UNUSED) {
   process_t *p = hash_entry(e, process_t, h_elem);
@@ -105,7 +106,7 @@ void init_master_process( process_t* proc) {
   proc->status = ALIVE;
   proc->exit_code = -1;
   proc->exe_file = NULL; 
-  list_init( &proc->owned_file_descriptors );
+  memset(proc->owned_file_descriptors, 0x0, sizeof(proc->owned_file_descriptors));
   //we don't really need the process_lock for the master process  
 }
 
@@ -115,8 +116,18 @@ void init_process( process_t* proc ) {
   proc->status = ALIVE;
   proc->exit_code = -1;
   proc->exe_file = NULL;
-  list_init( &proc->owned_file_descriptors );
+  memset(proc->owned_file_descriptors, 0x0, sizeof(proc->owned_file_descriptors));
   sema_init( &(proc->process_semaphore), 0);
+}
+
+void close_all_files(void) {
+  fd_entry *table = process_current()->owned_file_descriptors;
+  int i;
+  for(i = 0; i < MAX_OPEN_FILES_PER_PROCESS; ++i) {
+    if(table[i].fd != 0) {
+      file_close(table[i].file);            
+    }
+  }
 }
 
 /* Starts a new thread running a user program loaded from
@@ -341,6 +352,7 @@ process_exit (void)
     exit_code = current->exit_code;
   }
 
+  close_all_files();
   /*
   */
   if(current->exe_file != NULL) {
