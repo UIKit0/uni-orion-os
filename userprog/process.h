@@ -43,6 +43,9 @@ void process_exit (void);
 void process_activate (void);
 void process_init(void);
 
+void filesys_lock(void);
+void filesys_unlock(void);
+
 process_t * process_current(void);
 process_t * find_process(pid_t pid);
 

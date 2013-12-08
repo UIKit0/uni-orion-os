@@ -211,8 +211,9 @@ static void syscall_create(struct intr_frame *f) {
 		kill_current_process();
 		return;
 	}
-
+	filesys_lock();
 	bool success = filesys_create(file_name, initial_size);
+	filesys_unlock();
 	f->eax = success;
 }
 
@@ -225,7 +226,9 @@ static void syscall_remove(struct intr_frame *f) {
 		return;
 	}
 
+	filesys_lock();	
 	bool success = filesys_remove(file_name);
+	filesys_unlock();
 	f->eax = success;
 }
 
@@ -246,8 +249,9 @@ static void syscall_open(struct intr_frame *f) {
 	}
 
 	
-
+	filesys_lock();
 	struct file *file = filesys_open(file_name);
+	filesys_unlock();
 	if (file == NULL){
 		f->eax = -1;
 		return;
@@ -283,7 +287,9 @@ static void syscall_filesize(struct intr_frame *f) {
 	}
 
 	struct file *file = fd_get_file(fd);
+	filesys_lock();
 	f->eax = file != NULL ? file_length(file) : 0;
+	filesys_unlock();
 }
 
 /* Read from a file. */
@@ -305,9 +311,10 @@ static void syscall_read(struct intr_frame *f) {
 	if (fd == STDIN) {
 		// TODO: read from the keyboard using input_getc()
 	}
-
 	struct file* file = fd_get_file(fd);
+	filesys_lock();
 	f->eax = file != NULL ? file_read(file, buffer, size) : 0;
+	filesys_unlock();
 }
 
 /* Write to a file. */
@@ -331,7 +338,9 @@ void syscall_write(struct intr_frame *f) {
 	}
 
 	struct file* file = fd_get_file(fd);
+	filesys_lock();
 	f->eax = file != NULL ? file_write(file, buffer, size) : 0;
+	filesys_unlock();
 }
 
 /* Change position in a file. */
@@ -346,7 +355,9 @@ static void syscall_seek(struct intr_frame *f) {
 
 	struct file *file = fd_get_file(fd);
 	if (file != NULL) {
+		filesys_lock();
 		file_seek(file, position);
+		filesys_unlock();
 	}
 }
 
@@ -360,7 +371,9 @@ static void syscall_tell(struct intr_frame *f) {
 	}
 
 	struct file *file = fd_get_file(fd);
+	filesys_lock();
 	f->eax = file != NULL ? file_tell(file) : 0;
+	filesys_unlock();
 }
 
 /* Close a file. */
@@ -373,7 +386,9 @@ static void syscall_close(struct intr_frame *f) {
 	}
 	
 	current->num_of_opened_files--;
+	filesys_lock();
 	file_close(fd_get_file(fd));
+	filesys_unlock();
 	fd_remove_file(fd);
 }
 

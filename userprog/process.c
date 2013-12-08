@@ -747,3 +747,12 @@ install_page (void *upage, void *kpage, bool writable)
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
+
+
+void filesys_lock(void) {
+  lock_acquire(&file_sys_lock);  
+}
+
+void filesys_unlock(void) {
+  lock_release(&file_sys_lock);
+}
