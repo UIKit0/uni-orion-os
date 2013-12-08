@@ -23,6 +23,8 @@ struct process_t {
 	struct hash_elem h_elem;
 	/* wating semaphore instead of thread_block/unblock hackarounds */
 	struct semaphore process_semaphore;
+	/*file used for denying writes */
+	struct file * exe_file;
 };
 
 struct fd_list_link {

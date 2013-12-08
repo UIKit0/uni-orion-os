@@ -104,6 +104,7 @@ void init_master_process( process_t* proc) {
   proc->ppid = PID_ERROR;
   proc->status = ALIVE;
   proc->exit_code = -1;
+  proc->exe_file = NULL; 
   list_init( &proc->owned_file_descriptors );
   //we don't really need the process_lock for the master process  
 }
@@ -113,6 +114,7 @@ void init_process( process_t* proc ) {
   proc->ppid = process_current()->pid;
   proc->status = ALIVE;
   proc->exit_code = -1;
+  proc->exe_file = NULL;
   list_init( &proc->owned_file_descriptors );
   sema_init( &(proc->process_semaphore), 0);
 }
@@ -337,7 +339,16 @@ process_exit (void)
   }
   else {
     exit_code = current->exit_code;
-  }  
+  }
+
+  /*
+  */
+  if(current->exe_file != NULL) {
+    file_allow_write(current->exe_file);
+    file_close(current->exe_file);
+  }
+  //other cleanup here please
+
   printf("%s: exit(%d)\n", cur->name, exit_code);
   sema_up (&(current->process_semaphore));
   
@@ -466,12 +477,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = process_current()->exe_file = filesys_open (file_name);
+    
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+
+  file_deny_write(file);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -556,7 +570,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
   return success;
 }
 
