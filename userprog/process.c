@@ -157,19 +157,23 @@ process_execute (const char *buf)
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
-  fn_copy_name = palloc_get_page (0);
+  
   if (fn_copy == NULL)
     return PID_ERROR;
 
 
-  p = (process_t *)malloc (sizeof(process_t));
+  fn_copy_name = palloc_get_page (0);
 
-  if(p == NULL) {
+  if(fn_copy_name == NULL) {
+    palloc_free_page (fn_copy); //ensure that we are not leaking pages
     return PID_ERROR;
   }
 
+  p = (process_t *)malloc (sizeof(process_t));
+
   if(p == NULL) {
-    palloc_free_page (fn_copy); //ensure that we are not leaking pages
+    palloc_free_page (fn_copy);  //ensure that we are not leaking pages
+    palloc_free_page (fn_copy_name);
     return PID_ERROR;
   }  
 
