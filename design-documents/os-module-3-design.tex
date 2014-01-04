@@ -89,15 +89,16 @@ We need the following data structures and functions for managing memory mapped f
 \subsection{Functionality}
 
 \subsubsection{ syscall\_mmap }
-In syscall\_mmap:
+\textbf{In syscall\_mmap:}
 	\\1. Check if the fd is valid.
-	\\2. Inform the pages starting from the user provided address that they valid, and not present. We should also check if they are unoccupied?
+	\\2. Inform the pages starting from the user provided address that they valid, and not present. We should also check if they aren't used already.
 	\\3. If there is no error, make a mapped\_file entry and add it to the current process list.
 	\\4. Return the id.
+	\\5. We should add/increment a reference to the fd table such that the file is not truly closed until nothing references it anymore.
 
 
 
-Somewhere in swap:
+	\textbf{Somewhere in swap:}
 	\\1. We check if the evicted page provided belongs to a memory mapped file. If yes we write that page on the harddisk. Careful with page/file bounds.
 	\\2. If the requested page belongs to a memory mapped file, we just read it from the harddisk. Fill with 0s the padding if necessary.
 
@@ -110,9 +111,11 @@ As follows:
 		process_t *cp = process_current();
 		
 		foreach (mmentry : cp->mmap_list) {
-			if(mmentry->pagePointer < user_provided_location 
+			if(mmentry->pagePointer < 
+				user_provided_location 
 				 && user_provided_location < 
-					mmentry->pagePointer + mmentry->file_size) {
+					mmentry->pagePointer + 
+						mmentry->file_size) {
 				return mmentry;
 			}
 		}
@@ -122,11 +125,11 @@ As follows:
 	3. The evict/add\_page\_from\_hdd could find out, by using this function what to do next.
 
 \subsubsection{ syscall\_munmap }
-In syscall\_munmap:
+\textbf{In syscall\_munmap:}
 	\\1. Write what's in the memory to the file. 
 	\\2. Remove the mmentry from the list.
 
-In process\_exit:
+	 \textbf{In process\_exit:}
 	\\1. Call munmap for each entry in the process mmap\_list;
 
 
@@ -134,4 +137,69 @@ In process\_exit:
 We keep the mapped file list in each process because it's easier to manage the lifetime of the list entries. It's also a performance gain because if we would use a global list, searching could become very slow for a process that doesn't own any mapped files. That searching is done inside an exception handler! An alternative to this would be to use the supplemental page table to hold the necessary data.
 \\When unmapping we could forcibly evict all the pages that belong to the file instead of in place writing.
 \subsection{Tests}
+All the mmap from tests/vm.
+
+
+\textbf{mmap-bad-fd} - Tries to mmap an invalid fd, which must either fail silently or terminate the process with exit code -1.
+
+
+\textbf{mmap-clean} - Verifies that mmap'd regions are only written back on munmap if the data was actually modified in memory.
+
+
+\textbf{mmap-close} - Verifies that memory mappings persist after file close.
+
+
+\textbf{mmap-exit} - Executes child-mm-wrt and verifies that the writes that should  have occurred really did.
+
+
+\textbf{mmap-inherit} - Maps a file into memory and runs child-inherit to verify that  mappings are not inherited.
+
+
+\textbf{mmap-misalign} - Verifies that misaligned memory mappings are disallowed.
+
+
+\textbf{mmap-null} - Verifies that memory mappings at address 0 are disallowed.
+
+
+\textbf{mmap-over-code} - Verifies that mapping over the code segment is disallowed.
+
+
+\textbf{mmap-over-data} - Verifies that mapping over the data segment is disallowed.
+
+
+\textbf{mmap-overlap} - Verifies that overlapping memory mappings are disallowed.
+
+
+\textbf{mmap-over-stk} - Verifies that mapping over the stack segment is disallowed.
+
+
+\textbf{mmap-read} - Uses a memory mapping to read a file.
+
+
+\textbf{mmap-remove} - Deletes and closes file that is mapped into memory and verifies that it can still be read through the mapping.
+
+
+\textbf{mmap-shuffle} - Creates a 128 kB file and repeatedly shuffles data in it through a memory mapping.
+
+
+\textbf{mmap-twice} - Maps the same file into memory twice and verifies that the same data is readable in both.
+
+
+\textbf{mmap-unmap} - Maps and unmaps a file and verifies that the mapped region is inaccessible afterward.
+
+
+\textbf{mmap-write} - Writes to a file through a mapping, and unmaps the file, then reads the data in the file back using the read system call to verify.
+
+
+\textbf{mmap-zero} - Tries to map a zero-length file, which may or may not work but  should not terminate the process or crash.  Then dereferences the address that we tried to map, and the process must be terminated with -1 exit code. 
+
+
+
+
+
+
+
+
+
+	
 
