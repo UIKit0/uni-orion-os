@@ -20,6 +20,7 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
+#include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -685,7 +686,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
+	#ifdef VM
+      frame* uframe = ft_get_unused_frame();
+      uint8_t *kpage = uframe->page;
+	#else
       uint8_t *kpage = palloc_get_page (PAL_USER);
+	#endif
       if (kpage == NULL)
         return false;
 
