@@ -82,26 +82,10 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
   lock_release (&pool->lock);
 
   if (page_idx != BITMAP_ERROR)
-  {
-	//pages start virtual address
     pages = pool->base + PGSIZE * page_idx;
-
-    #ifdef VM
-    if(flags & PAL_USER)
-    {
-    	void *phys_add = vtop(pages);
-    	struct pagedir *pd = thread_current()->pagedir;
-    	void *page = get_page(pd, pages);
-
-    	//save pages in frame_table
-    }
-
-	#endif
-  }
   else
     pages = NULL;
 
-  //init pages with zero
   if (pages != NULL) 
     {
       if (flags & PAL_ZERO)
