@@ -64,6 +64,7 @@ We have open/read/write file syscalls. We know for each process its table of ope
 We need the following data structures and functions for managing memory mapped files: 
 
 \begin{lstlisting}
+	//process.h
 	struct process_t {
 		list mmap_list;
 	};
@@ -72,40 +73,65 @@ We need the following data structures and functions for managing memory mapped f
 	struct mapped_file {
 		mapid_t id;
 		int fd;
-		void *unused; //optional
+		void *user_provided_location;
+		size_t file_size;
 		enum mapped_file_status status; //optional
 		struct list_elem lst;
-	};	
-\end{lstlisting}
+	};
+
+	//syscall.c
 	static void syscall_mmap(struct intr_frame *f);
-	static void syscall_mumap(struct intr_frame *f);
+	static void syscall_munmap(struct intr_frame *f);
+\end{lstlisting}
 	
 
 
 \subsection{Functionality}
 
+\subsubsection{ syscall\_mmap }
+In syscall\_mmap:
+	\\1. Check if the fd is valid.
+	\\2. Inform the pages starting from the user provided address that they valid, and not present. We should also check if they are unoccupied?
+	\\3. If there is no error, make a mapped\_file entry and add it to the current process list.
+	\\4. Return the id.
+
+
+
+Somewhere in swap:
+	\\1. We check if the evicted page provided belongs to a memory mapped file. If yes we write that page on the harddisk. Careful with page/file bounds.
+	\\2. If the requested page belongs to a memory mapped file, we just read it from the harddisk. Fill with 0s the padding if necessary.
+
+The memory mapped file page checking could be done in the following way: We know the current process in swap/evict because it's inside an exception handler, thus we know how to get to the mapped\_file's list. We simply make range search on each mapped\_file element, since we know that the files are mapped in contiguous regions.
+
+As follows:
+\begin{lstlisting}	
+	/* may return null when the mapped file is not present  */
+	mapped_file *GetMappedFileFromPagePointer(void *pagePointer) {
+		process_t *cp = process_current();
+		
+		foreach (mmentry : cp->mmap_list) {
+			if(mmentry->pagePointer < user_provided_location 
+				 && user_provided_location < 
+					mmentry->pagePointer + mmentry->file_size) {
+				return mmentry;
+			}
+		}
+		return NULL;
+	}
+\end{lstlisting}
+	3. The evict/add\_page\_from\_hdd could find out, by using this function what to do next.
+
+\subsubsection{ syscall\_munmap }
+In syscall\_munmap:
+	\\1. Write what's in the memory to the file. 
+	\\2. Remove the mmentry from the list.
+
+In process\_exit:
+	\\1. Call munmap for each entry in the process mmap\_list;
 
 
 \subsection{Design Decisions}
-
-Justify your design decisions, specify other design alternatives, their advantages and disadvantages and mention the reasons of your choice.  
-
+We keep the mapped file list in each process because it's easier to manage the lifetime of the list entries. It's also a performance gain because if we would use a global list, searching could become very slow for a process that doesn't own any mapped files. That searching is done inside an exception handler! An alternative to this would be to use the supplemental page table to hold the necessary data.
+\\When unmapping we could forcibly evict all the pages that belong to the file instead of in place writing.
 \subsection{Tests}
 
-Describe briefly the tests you are intended to run in order to test the functionality of your implementation.
-
-\subsection{Observations}
-
-You can use this section to mention other things not mentioned in the other sections. 
-
-You can indicate and evaluate, for instance:
-\begin{itemize}
-	\item the most difficult parts of your assignment and the reasons you think they were so; 
-	
-	\item the difficulty level of the assignment and if the allocated time was enough or not; 
-
-	\item particular facts or hints you think we should give students to help them solve better the assignment.
-
-\end{itemize}
-
-You can also make suggestions for teacher, relative to the way he can assist more effectively the students.
