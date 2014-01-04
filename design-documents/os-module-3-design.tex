@@ -53,3 +53,59 @@ You can indicate and evaluate, for instance:
 
 You can also make suggestions for teacher, relative to the way he can assist more effectively the students.
 
+\section{Memory Mapped Files}
+\subsection{Initial Functionality}
+
+We have open/read/write file syscalls. We know for each process its table of opened files.
+
+
+\subsection{Data Structures and Functions}
+
+We need the following data structures and functions for managing memory mapped files: 
+
+\begin{lstlisting}
+	struct process_t {
+		list mmap_list;
+	};
+
+	typedef int mapid_t;
+	struct mapped_file {
+		mapid_t id;
+		int fd;
+		void *unused; //optional
+		enum mapped_file_status status; //optional
+		struct list_elem lst;
+	};	
+\end{lstlisting}
+	static void syscall_mmap(struct intr_frame *f);
+	static void syscall_mumap(struct intr_frame *f);
+	
+
+
+\subsection{Functionality}
+
+
+
+\subsection{Design Decisions}
+
+Justify your design decisions, specify other design alternatives, their advantages and disadvantages and mention the reasons of your choice.  
+
+\subsection{Tests}
+
+Describe briefly the tests you are intended to run in order to test the functionality of your implementation.
+
+\subsection{Observations}
+
+You can use this section to mention other things not mentioned in the other sections. 
+
+You can indicate and evaluate, for instance:
+\begin{itemize}
+	\item the most difficult parts of your assignment and the reasons you think they were so; 
+	
+	\item the difficulty level of the assignment and if the allocated time was enough or not; 
+
+	\item particular facts or hints you think we should give students to help them solve better the assignment.
+
+\end{itemize}
+
+You can also make suggestions for teacher, relative to the way he can assist more effectively the students.
