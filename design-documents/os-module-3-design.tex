@@ -322,7 +322,45 @@ In order to remove this limitations this part will implement the following three
   
 \end{lstlisting}
 
+\textbf{Swapping}
 
+\begin{lstlisting}
+	
+	//In swap.c:
+	
+	static struct bitmap swap_table;
+	struct block *fs_swap_device;
+	
+	swap_init()
+	{
+		fs_swap_device = block_get_role(BLOCK_SWAP);
+		swap_size = block_size(fs_swap_device);
+		bitmap_create( swap_size / PGSIZE );
+	}
+	
+	swap_out(kpage, slot_no)
+	{
+		file_seek(swap_file, slot_no * PGSIZE);
+		
+		block_read(swap_file, PGSIZE, kpage);
+		
+		bitmap_reset(swap_file, slot_no);
+	}
+	
+	int swap_in(kpage)
+	{
+		slot_no = bitmap_scan_and_flip(&swap_table, true);
+		
+		file_seek(swap_file, slot_no * PGSIZE);
+		
+		block_write(swap_file, PGSIZE, kpage);
+	}
+	
+\end{lstlisting}
+
+\begin{lstlisting}
+
+\end{lstlisting}
 
 \section{Design Decisions}
 
