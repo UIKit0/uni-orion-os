@@ -133,6 +133,58 @@ In order to remove this limitations this part will implement the following three
 
 \section{Functionality}
 
+\textbf{Lazy-loading}
+
+\begin{lstlisting}
+ page_load(upage): returns a boolean value
+{
+	p = process_current();
+
+	// Look for the missing page in the supplemental page table
+	sup_pte = page_lookup(p, pg_no(upage));
+	
+	exe_file = p.exe_file;
+	page_read_bytes = sup_pte.page_read_bytes;
+	page_zero_bytes = sup_pte.page_zero_bytes;
+	writable = sup_pte.writable;
+
+	/* Get a page of memory. */
+	frame = ft_alloc_frame();
+    
+	
+	if(frame == NULL)
+	    PANIC_KERNEL
+
+	uint8_t *kpage = uframe->kpage;
+	
+	//advance to offset
+	file_seek(file, sup_pte.ofs);
+
+	/* Load this page. */
+	file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
+	
+	memset(kpage + page_read_bytes, 0, page_zero_bytes);
+
+	/* Add the page to the process's address space. */
+	install_page(upage, kpage, writable)
+
+	return true;
+}
+
+//In exception.c:
+  
+  page_fault()
+    ...
+    if( not_present ) {
+      load_page(fault_addr);
+      return;
+    }
+    ...
+
+
+\end{lstlisting}
+
+
 \textbf{Eviction}
 
 \begin{lstlisting}
