@@ -19,17 +19,59 @@ In order to remove this limitations this part will implement the following three
 
 \section{Data Structures and Functions}
 
-Specify the \textit{data structures} and \textit{functions} involved in your solution and what are they used for. Describe in few words the purpose of new added data structures, fields and functions. 
+\textbf{Eviction}
 
 \begin{lstlisting}
-	struct existent_data_structure {
-		int newField;
-	};
+
+  //In frame.h:
+
+  struct frame
+  {
+	//kernel virtual address of page
+	void *kpage; 	
+	  
+	//user virtual address of page
+	void *upage;	
 	
-	struct newDataStructure {
-	};
+	//if frame is pinned, the contained page can not be evicted
+	bool  pinned;		
 	
-	int newFunction();
+	struct hash_elem he; //needed for hash_table
+  };
+
+  /*allocates a page within a frame
+    and returns the allocated frame
+    if there is an unused frame.
+    Otherwise, it tries to evict a 
+    frame and return it. If no frame
+    is unused and no frame can be evicted
+    it returns NULL. */
+  frame* ft_aloc_frame(void *upage);
+  
+  //initializes the frame-table
+  void	 ft_init();
+
+  //In frame.c:
+  /* The frametable */
+  static struct hash frame_table;
+
+  /*hash function for the frame table.
+  It should be computed using the kpage field
+  of the frame */
+  static unsigned frame_hash (const struct hash_elem *f_, void *aux UNUSED);
+  
+  /* Frame table utility functions */
+  static bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+  frame* frame_lookup (const void *kpage);
+
+  /* A lock for frame_table synch access*/
+  struct lock ft_lock;
+
+  /*
+    Finds the least recently used frame
+  */
+  frame* ft_get_lru_frame();
+
 \end{lstlisting}
 
 
