@@ -19,6 +19,63 @@ In order to remove this limitations this part will implement the following three
 
 \section{Data Structures and Functions}
 
+\textbf{Lazy-loading}
+
+\begin{lstlisting}
+ 
+  //In page.h:
+  
+  *!!! Copied from VM Laboratory sources !!!*
+
+  // an entry (element) in the supplemental page table
+  struct supl_pte {					
+	/* the number of the virtual page 
+	 (also the hash key) having info about*/
+	uint32_t	virt_page_no; 			
+	// the virtual address of the page
+	void*		virt_page_addr;			
+	/* the offset in file the bytes to be stored 
+	   in the page must be read from */
+	off_t 		ofs;				
+	/* number of bytes to read from the file and
+	    store in the page */
+	size_t 		page_read_bytes;		
+	// number of bytes to zero in the page
+	size_t 		page_zero_bytes; 		
+	// indicate if the page is writable or not
+	bool		writable;		
+	// element to insert the structure in a hash list
+	struct hash_elem he;				
+  };
+
+  /*
+    initializes the supplemental
+    page table
+  */
+  void supl_pt_init(struct hash *);
+  
+  /* tries to load the given page
+     and returns true if succeeded,
+     false otherwise */
+  bool page_load(uint8_t *upage);
+
+
+  //In process.h:
+  struct process_t {
+    /*file used for denying writes 
+    and for lazy loading of executable*/
+    struct file * exe_file;
+
+  #ifdef VM
+    //supplemental page table - used
+    //for lazy loading
+    struct hash supl_pt;				
+  #endif
+
+};
+  
+\end{lstlisting}
+
 \textbf{Eviction}
 
 \begin{lstlisting}
