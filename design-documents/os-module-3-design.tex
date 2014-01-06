@@ -124,7 +124,11 @@ In order to remove this limitations this part will implement the following three
 
 \section{Design Decisions}
 
-Justify your design decisions, specify other design alternatives, their advantages and disadvantages and mention the reasons of your choice.  
+\textbf{Eviction}
+
+We chose to implement the frame table as a hash map. Other options would have been a vector or a list. The problem of the vector is that it would occuppy the same space whether the frame table is full or not. However the benefit of the vector is that it has constant access by index. The list, on the other side occuppies less space than the vector in the when the memory is not occupied, but does not provide constant access. Therefore, we chose to implement the frame table as a hash map.
+
+Altough normally a frame table maps a physical address to a virtual address we chose the key of the frame table to be a virtual kernel address, the kernel virtual address, because of the strong correlation in pintos between the physical address and the kernel virtual address.
 
 \section{Tests}
 
