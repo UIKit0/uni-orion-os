@@ -215,9 +215,8 @@ In order to remove this limitations this part will implement the following three
 	writable = sup_pte.writable;
 
 	/* Get a page of memory. */
-	frame = ft_alloc_frame();
+	frame = ft_alloc_frame(PAL_USER, upage);
     
-	
 	if(frame == NULL)
 	    PANIC_KERNEL
 
@@ -227,7 +226,12 @@ In order to remove this limitations this part will implement the following three
 	file_seek(file, sup_pte.ofs);
 
 	/* Load this page. */
-	file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
+	if( swap_slot < 0 ) {
+		file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) 
+	}
+	else {
+		swap_page_load(kpage, swap_slot);
+	}
 	
 	memset(kpage + page_read_bytes, 0, page_zero_bytes);
 
