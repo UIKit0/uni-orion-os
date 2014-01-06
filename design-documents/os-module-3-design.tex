@@ -267,7 +267,7 @@ In order to remove this limitations this part will implement the following three
       frame *f = malloc(sizeof frame)
       f.kpage = kpage;
       f.upage = upage;
-      f.pinned = false
+      f.pinned = false;
       f.he = ...
 	  lock_aquire(&ft_lock);
 	  frame.pinned = true;
@@ -300,7 +300,7 @@ In order to remove this limitations this part will implement the following three
 	if( dealloc_page )
 	{
 		pagedir_clear_page(thread_current()->pagedir, upage);
-		palloc_free_page(frame.upage);
+		palloc_free_page(frame.kpage);
 		lock_aquire(&ft_lock);
 		hash_delete(f.he);
 		lock_release(&ft_lock);
