@@ -2,9 +2,20 @@
 \chapter{Design of Module \textit{virtualmemory}}
 
 
-\section{Initial Functionality}
+\section{Paging}
 
-Describe briefly what you have been given (have started from) at the beginning of the assignment and the way the existing functionality must be extended.
+At the beginning of this project, it is not possible to load programs that are bigger than the memory size of the system. To be able to do this we want to implement virtual memory in pintos. The most important issue that has to be solved in order to implement virtual memory in pintos is Paging. At this moment, pintos organizes the memory in pages, but it has the following limitations:
+\begin{itemize}
+ \item the whole executable is loaded at run-time 
+ \item the whole executable is unloaded at end of run
+\end{itemize}
+
+In order to remove this limitations this part will implement the following three sub parts:
+\begin{itemize}
+  \item lazy-loading of executables - only a part of executable is loaded at run-time
+  \item	eviction - unused parts of executable are unloaded from memory even if the program is running
+  \item swap - temporary buffer for pages that were modified since loading and are chosen for eviction
+\end{itemize}
 
 \section{Data Structures and Functions}
 
