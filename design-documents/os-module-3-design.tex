@@ -197,20 +197,24 @@ In order to remove this limitations this part will implement the following three
       frame *f = malloc(sizeof frame)
       f.kpage = kpage;
       f.upage = upage;
-      f.pinned = ...
+      f.pinned = false
       f.he = ...
 	  lock_aquire(&ft_lock);
+	  frame.pinned = true;
       insert_hash(f.he);
+	  frame.pinned = false;
 	  lock_release(&ft_lock);
       return f;
     }
     else {
 	  lru_f = ft_get_lru_frame();
       if lru_f != NULL
+		frame.pinned = true;
 		ft_evict_frame(lru_f, false);
 		lru_f.upage = upage;
-		 if (flags & PAL_ZERO)
+		if (flags & PAL_ZERO)
 			memset (lru_f.kpage, 0, 1);
+		frame.pinned = false;
 		return lru_f
     }
 
@@ -225,24 +229,26 @@ In order to remove this limitations this part will implement the following three
 	}	
 	if( dealloc_page )
 	{
+		pagedir_clear_page(thread_current()->pagedir, upage);
 		palloc_free_page(frame.upage);
 		lock_aquire(&ft_lock);
 		hash_delete(f.he);
 		lock_release(&ft_lock);
 		free(frame)
 	}
+	
   }
 	
   ft_get_lru_frame() : returns a frame*
     //first iteration
     for each frame in frame_table
-      if ( !pagedir_is_accessed_or_dirty(thread_current()->pagedir, frame.upage) )
+      if ( !pinned(frame) && !pagedir_is_accessed_or_dirty(thread_current()->pagedir, frame.upage) )
 		continue;
       else 
 		return frame;
     
     for each frame in frame_table
-      if ( !pagedir_is_accessed(thread_current()->pagedir, frame.upage) )
+      if ( !pinned(frame) && !pagedir_is_accessed(thread_current()->pagedir, frame.upage) )
 		continue;
       else 
 		return frame;
