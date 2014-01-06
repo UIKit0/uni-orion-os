@@ -131,6 +131,41 @@ In order to remove this limitations this part will implement the following three
 
 \end{lstlisting}
 
+\textbf{Swapping}
+
+\begin{lstlisting}
+	
+	//In page.h
+	
+	struct supl_pte
+	{
+		...
+		/* indicates if the page is in swap or on the disk
+		   if greater than 0, page is in a swap slot */
+		int	swap_slot;
+		...
+	}
+	
+	//In swap.h:
+	
+	/*
+	  Creates a swap file on the swap
+	  partition
+	*/
+	swap_init();
+	
+	/* swaps the page out of a
+	   slot number at kpage address*/
+	swap_out(kpage, slot_no);
+	
+	/* swaps the page into a slot
+	   and returns the number of the
+	   slot where the page was swapped
+	*/
+	int swap_in(kpage);
+	
+\end{lstlisting}
+
 \section{Functionality}
 
 \textbf{Lazy-loading}
