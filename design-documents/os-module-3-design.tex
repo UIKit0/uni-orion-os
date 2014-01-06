@@ -154,15 +154,16 @@ In order to remove this limitations this part will implement the following three
 	*/
 	swap_init();
 	
-	/* swaps the page out of a
+	/* swaps the page into memory from a
 	   slot number at kpage address*/
-	swap_out(kpage, slot_no);
+	swap_in(kpage, slot_no);
 	
-	/* swaps the page into a slot
-	   and returns the number of the
-	   slot where the page was swapped
+	/* swaps the page out of memory
+	   into auxiliary storage. Returns
+	   the number of the slot it occupies
+	   in swap.
 	*/
-	int swap_in(kpage);
+	int swap_out(kpage);
 	
 \end{lstlisting}
 
@@ -230,7 +231,8 @@ In order to remove this limitations this part will implement the following three
 		file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) 
 	}
 	else {
-		swap_page_load(kpage, swap_slot);
+		swap_in(kpage, swap_slot);
+		sup_pte.swap_slot = -1;
 	}
 	
 	memset(kpage + page_read_bytes, 0, page_zero_bytes);
@@ -254,7 +256,7 @@ In order to remove this limitations this part will implement the following three
 
 \end{lstlisting}
 
-
+	
 \textbf{Eviction}
 
 \begin{lstlisting}
@@ -295,7 +297,8 @@ In order to remove this limitations this part will implement the following three
   {
 	if( pagedir_is_dirty(frame.upage) )
 	{
-		//write page to swap
+		supl_pte = get_supl_pte(current_process, frame.upage);
+		supl_pte.slot_no = swap_out(frame.kpage)
 	}	
 	if( dealloc_page )
 	{
@@ -342,7 +345,7 @@ In order to remove this limitations this part will implement the following three
 		bitmap_create( swap_size / PGSIZE );
 	}
 	
-	swap_out(kpage, slot_no)
+	swap_in(kpage, slot_no)
 	{
 		file_seek(swap_file, slot_no * PGSIZE);
 		
@@ -351,7 +354,7 @@ In order to remove this limitations this part will implement the following three
 		bitmap_reset(swap_file, slot_no);
 	}
 	
-	int swap_in(kpage)
+	int swap_out(kpage)
 	{
 		slot_no = bitmap_scan_and_flip(&swap_table, true);
 		
