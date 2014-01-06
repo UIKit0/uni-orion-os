@@ -171,6 +171,37 @@ In order to remove this limitations this part will implement the following three
 \textbf{Lazy-loading}
 
 \begin{lstlisting}
+
+  //In process.c:
+  
+  load_segment(...)
+  {
+	...
+	off_t crt_ofs = ofs;
+
+	file_seek (file, ofs);
+	while (read_bytes > 0 || zero_bytes > 0) 
+    {
+      ...
+
+      // Added by Adrian Colesa - VM
+
+      // Store info about that page to be able to load it when needed (when a page fault occurs)      
+      spte = malloc(sizeof(struct supl_pte));
+      spte->virt_page_addr = upage;
+      spte->virt_page_no = pg_no(upage);
+      spte->ofs = crt_ofs;
+      spte->page_read_bytes = page_read_bytes;
+      spte->page_zero_bytes = page_zero_bytes;
+      spte->writable = writable;
+	  spte->swap_slot = -1;
+      hash_insert (&thread_current()->supl_pt, &spte->he);
+
+      crt_ofs += page_read_bytes;
+	...
+  }
+
+
  page_load(upage): returns a boolean value
 {
 	p = process_current();
