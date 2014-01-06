@@ -74,12 +74,52 @@ In order to remove this limitations this part will implement the following three
 
 \end{lstlisting}
 
-
 \section{Functionality}
 
-Describe \textbf{briefly}, still \textbf{explicitly}, in words and pseudocode the way your solution works. DO NOT INCLUDE detailed code. 
+\textbf{Eviction}
 
-Give examples, if you think they can make your explanation clearer. You are free to use any other techniques (e.g. use-case diagrams, sequence diagrams etc.) that you think can make your explanation clearer. 
+\begin{lstlisting}
+
+  //In process.c: Change palloc_get_page with ft_alloc_frame
+
+  ft_alloc_frame(void *upage_addr) : returns a frame*
+    void *kpage = palloc_get_page(upage_addr);
+    if(kpage != NULL) {
+      frame *f = malloc(sizeof frame)
+      f.kpage = kpage;
+      f.upage = upage;
+      f.pinned = ...
+      f.he = ...
+      insert_hash(f.he);
+      return f;
+    }
+    else {
+      frame *lru_f = ft_get_lru_frame();
+      if lru_f != NULL
+	return lru_f
+    }
+
+    return NULL;
+
+  ft_get_lru_frame() : returns a frame*
+    //first iteration
+    for each frame in frame_table
+      if ( !pagedir_is_accessed_or_dirty(thread_current()->pagedir, frame.upage) )
+	continue;
+      else 
+	evict(frame);
+	return frame;
+    
+    for each frame in frame_table
+      if ( !pagedir_is_accessed(thread_current()->pagedir, frame.upage) )
+	continue;
+      else 
+	evict(frame);
+	return frame;
+
+  
+\end{lstlisting}
+
 
 
 \section{Design Decisions}
