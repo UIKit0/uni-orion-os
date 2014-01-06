@@ -191,40 +191,61 @@ In order to remove this limitations this part will implement the following three
 
   //In process.c: Change palloc_get_page with ft_alloc_frame
 
-  ft_alloc_frame(void *upage_addr) : returns a frame*
-    void *kpage = palloc_get_page(upage_addr);
+  ft_alloc_frame(flags, void *upage_addr) : returns a frame*
+    void *kpage = palloc_get_page(flags, upage_addr);
     if(kpage != NULL) {
       frame *f = malloc(sizeof frame)
       f.kpage = kpage;
       f.upage = upage;
       f.pinned = ...
       f.he = ...
+	  lock_aquire(&ft_lock);
       insert_hash(f.he);
+	  lock_release(&ft_lock);
       return f;
     }
     else {
-      frame *lru_f = ft_get_lru_frame();
+	  lru_f = ft_get_lru_frame();
       if lru_f != NULL
-	return lru_f
+		ft_evict_frame(lru_f, false);
+		lru_f.upage = upage;
+		 if (flags & PAL_ZERO)
+			memset (lru_f.kpage, 0, 1);
+		return lru_f
     }
 
     return NULL;
-
+  }
+ 
+  ft_evict_frame(frame, dealloc_page? ) 
+  {
+	if( pagedir_is_dirty(frame.upage) )
+	{
+		//write page to swap
+	}	
+	if( dealloc_page )
+	{
+		palloc_free_page(frame.upage);
+		lock_aquire(&ft_lock);
+		hash_delete(f.he);
+		lock_release(&ft_lock);
+		free(frame)
+	}
+  }
+	
   ft_get_lru_frame() : returns a frame*
     //first iteration
     for each frame in frame_table
       if ( !pagedir_is_accessed_or_dirty(thread_current()->pagedir, frame.upage) )
-	continue;
+		continue;
       else 
-	evict(frame);
-	return frame;
+		return frame;
     
     for each frame in frame_table
       if ( !pagedir_is_accessed(thread_current()->pagedir, frame.upage) )
-	continue;
+		continue;
       else 
-	evict(frame);
-	return frame;
+		return frame;
 
   
 \end{lstlisting}
