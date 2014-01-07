@@ -29,12 +29,4 @@ bool 	ft_evict_frame(frame* frame, bool dealloc_page);
 void 	ft_pin_frame(const void *uaddr);
 void 	ft_unpin_frame(const void *uaddr);
 
-//size_t ft_get_size(void);
-//void   ft_add_page(void *phys_add, void *page);
-//void   ft_evict_page(void *phys_add);
-//void*  ft_search_page(void *page);
-//void*  ft_get_page(void *phys_add);
-//frame*  ft_get_unused_frame(void);
-
-
 #endif
