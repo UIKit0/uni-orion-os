@@ -383,11 +383,21 @@ In order to remove this limitations this part will implement the following three
 
 \section{Design Decisions}
 
+\textbf{Lazy-loading}
+
+To implement lazy-loading we chose to add a supplemental page table to each process where the information needed to load the page is kept. Keeping only a global supplemental page table is also possible but would make the search in the table a little bit slower, and the manage of the table more complicated.
+On the other side, putting the supplemental page table in the thread would duplicate a lot of information in case multithreading user programs are implemented. This is why we chose to put the supplemental page table in the process structure.
+
+The data structure used for the supplemental page table is a hash map, because we need fast access by some page identifier, like the page number. Hashmaps provide this advantage for less space than simple arrays.
+
 \textbf{Eviction}
 
 We chose to implement the frame table as a hash map. Other options would have been a vector or a list. The problem of the vector is that it would occuppy the same space whether the frame table is full or not. However the benefit of the vector is that it has constant access by index. The list, on the other side occuppies less space than the vector in the when the memory is not occupied, but does not provide constant access. Therefore, we chose to implement the frame table as a hash map.
-
 Altough normally a frame table maps a physical address to a virtual address we chose the key of the frame table to be a virtual kernel address, the kernel virtual address, because of the strong correlation in pintos between the physical address and the kernel virtual address.
+
+\textbf{Swapping}
+The swap table is implemented using a bitmap, because we only need to keep track whether a slot is occupied or not, therefore, a bit/slot is enough. 
+The advantage of this solution against to other solutions is that it occupies less space.
 
 \section{Tests}
 
