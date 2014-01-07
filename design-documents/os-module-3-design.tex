@@ -456,24 +456,63 @@ impose some absolute limit so it can not get higher. So we need to detect when a
 \textbf{In syscal\_handler:}
 	  \\1. Save the stack pointer in the struct thread
 
+\begin{lstlisting}
+	static void syscall_handler( struct intr_frame *f )
+	{
+	  current_thread()->esp = f->esp;
+	}
+\end{lstlisting}
+
+
 \textbf{In page\_fault:}
 	  \\1. Get the address that generate the page fault.
 	  \\2. Verify if stack cause the page fault by comparing the esp from current with the page fault address. If the difference between them is 32 or 4 then the page fault was cause by the grow of the stack.
-	  \\3. Verify the size of the stack, if the size if higher than 8MB then destroy process.
-	  \\4. If true than the call the method stack\_grow
+	  \\3. If true than the call the method stack\_grow.
+	  \\4. Verify the size of the stack, if the size if higher than 8MB then destroy process.
 	  \\5. If false continue to determin the reason for the page faul.
+
+\begin{lstlisting}
+
+	static bool is_stack_page_fault( void* fault_addr )
+	{
+	  get stack pointer from current thread;
+	  if ( esp - fault_addr == 32 || esp - fault_addr == 4 )
+	  {
+	    if ( stack_grow( esp, esp - fault_addr ) )
+	    {
+	      return false;
+	    }
+	    return true;
+	  }
+	  return false;
+	}
+
+\end{lstlisting}
+
 
 \textbf{In file process.c: }
 
 We will create a function that will grow the stack. The function will be something like this:
-
-\begin{lstlisting}
-    static bool is_stack_page_fault( struct intr_frame *f, void* fault_addr )
-    {
-      \\1. Alloc new page from user pool.
+      \\1. Get a free page. 
       \\2. If the page is not null, try to connect the page frame with the virtual page. The address of the virtual page where page fault occures is connected with the frame page.
       \\3. If is not possible to connect them dealloc the page and return faslse.
       \\4. Returns true is everthing works.
+
+\begin{lstlisting}
+    static bool stack_grow( void** esp, size_t size )
+    {
+      uint8_t* kpage = palloc_get_page( PAL_USER | PAL_ZERO );
+      if ( kpage != NULL )
+      {
+	if ( install_page ( ( ( uint8_t* ) *esp - size ) - PGSIZE, kpage, true )
+	{
+	  *esp = *esp - size;
+	}
+	else
+	{
+	  palloc_free_page( kpage );
+	}
+      }
     }
 \end{lstlisting}
 
