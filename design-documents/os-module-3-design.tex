@@ -391,23 +391,13 @@ Altough normally a frame table maps a physical address to a virtual address we c
 
 \section{Tests}
 
-Describe briefly the tests you are intended to run in order to test the functionality of your implementation.
+After the implementation of paging, all tests from project should still pass plus some tests regarding paralellism.
 
-\section{Observations}
-
-You can use this section to mention other things not mentioned in the other sections. 
-
-You can indicate and evaluate, for instance:
-\begin{itemize}
-	\item the most difficult parts of your assignment and the reasons you think they were so; 
-	
-	\item the difficulty level of the assignment and if the allocated time was enough or not; 
-
-	\item particular facts or hints you think we should give students to help them solve better the assignment.
-
-\end{itemize}
-
-You can also make suggestions for teacher, relative to the way he can assist more effectively the students.
+page-linear.c - Encrypts, then decrypts, 2 MB of memory and verifies that the values are as they should be.
+page-shuffle.c - Shuffles a 128 kB data buffer 10 times, printing the checksum after each time.
+page-parallel.c - Runs 4 child-linear processes at once.
+page-merge-seq.c - Generates about 1 MB of random data that is then divided into 16 chunks.  A separate subprocess sorts each chunk in sequence.  Then we merge the chunks and verify that the result is what it should be.
+page-merge-par.c - The same in parallel.
 
 \section{Stack Growth}
 \subsection{Initial Functionality}
