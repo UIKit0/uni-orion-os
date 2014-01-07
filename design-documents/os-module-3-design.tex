@@ -636,6 +636,9 @@ All the mmap from tests/vm.
 
 \textbf{mmap-zero} - Tries to map a zero-length file, which may or may not work but  should not terminate the process or crash.  Then dereferences the address that we tried to map, and the process must be terminated with -1 exit code. 
 
+\section{Accessing user memory}
+
+Accessing user memory during a syscall was already implemented in project 2: userprog. Synchronization related issues are solved by paging design.
 
 
 
