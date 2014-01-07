@@ -569,6 +569,13 @@ As follows:
 	}
 \end{lstlisting}
 	3. The evict/add\_page\_from\_hdd could find out, by using this function what to do next.
+\begin{lstlisting}
+	ft_evict_frame()
+		if( pagedir_is_dirty(pagePointer) || GetMappedFileFromPagePointer(pagePointer))
+		{
+			//swap ...
+		}
+\end{lstlisting}
 
 \subsubsection{ syscall\_munmap }
 \textbf{In syscall\_munmap:}
