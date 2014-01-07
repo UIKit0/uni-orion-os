@@ -1,4 +1,3 @@
-
 \chapter{Design of Module \textit{virtualmemory}}
 
 
@@ -128,6 +127,14 @@ In order to remove this limitations this part will implement the following three
     Finds the least recently used frame
   */
   frame* ft_get_lru_frame();
+  
+  /* Tries to evict the frame given. If the 
+  page within the frame was modified, the page
+  is written to swap. If dealloc is requested,
+  the memory is freed, otherwise, the memory is
+  kept for another page to be used. Returns true
+  if eviction was successful, false otherwise.
+  bool ft_evict_frame(frame, dealloc_page? );
 
 \end{lstlisting}
 
@@ -219,6 +226,7 @@ In order to remove this limitations this part will implement the following three
 	frame = ft_alloc_frame(PAL_USER, upage);
     
 	if(frame == NULL)
+		//no more memory (neither RAM, nor SWAP)
 	    PANIC_KERNEL
 
 	uint8_t *kpage = uframe->kpage;
@@ -293,12 +301,14 @@ In order to remove this limitations this part will implement the following three
     return NULL;
   }
  
-  ft_evict_frame(frame, dealloc_page? ) 
+  ft_evict_frame(frame, dealloc_page? )
   {
 	if( pagedir_is_dirty(frame.upage) )
 	{
 		supl_pte = get_supl_pte(current_process, frame.upage);
 		supl_pte.slot_no = swap_out(frame.kpage)
+		if(supl_pte.slot_no < 0)
+			return false
 	}	
 	if( dealloc_page )
 	{
@@ -310,6 +320,7 @@ In order to remove this limitations this part will implement the following three
 		free(frame)
 	}
 	
+	return true
   }
 	
   ft_get_lru_frame() : returns a frame*
@@ -357,7 +368,8 @@ In order to remove this limitations this part will implement the following three
 	int swap_out(kpage)
 	{
 		slot_no = bitmap_scan_and_flip(&swap_table, true);
-		
+		if(no slot available)
+			return -1;
 		file_seek(swap_file, slot_no * PGSIZE);
 		
 		block_write(swap_file, PGSIZE, kpage);
