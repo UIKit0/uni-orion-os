@@ -48,8 +48,7 @@ In order to remove this limitations this part will implement the following three
   };
 
   /*
-    initializes the supplemental
-    page table
+    initializes the supplemental page table
   */
   void supl_pt_init(struct hash *);
   
@@ -116,37 +115,42 @@ In order to remove this limitations this part will implement the following three
    * that frame from being evicted by the 
    * LRU algorithm
    */
-  void 	ft_pin_frame(const void *uaddr);
-  void 	ft_unpin_frame(const void *uaddr);
+  void ft_pin_frame(const void *uaddr);
+  void ft_unpin_frame(const void *uaddr);
 
 
   //initializes the frame-table
-  void	 ft_init();
+  void ft_init();
 
   //In frame.c:
   /* The frametable */
   static struct hash frame_table;
 
-  /*hash function for the frame table.
-  It should be computed using the kpage field
-  of the frame */
-  static unsigned frame_hash (const struct hash_elem *f_, void *aux UNUSED);
+  /* 
+   * Hash function for the frame table.
+   * It should be computed using the kpage field of the frame 
+   */
+  static unsigned frame_hash(const struct hash_elem *f_, void *aux UNUSED);
   
-  /* Frame table utility functions */
-  static bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
-  frame* frame_lookup (const void *kpage);
+  /* 
+   * Frame table utility functions
+   */
+  static bool frame_less(const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+  frame* frame_lookup(const void *kpage);
 
-  /* A lock for frame_table synch access*/
+  /* A lock for frame_table synch access */
   struct lock ft_lock;
 
   /*
-    Finds the least recently used frame
-  */
+   * Finds the least recently used frame
+   */
   frame* ft_get_lru_frame();
   
-  /* Tries to evict the frame given. If the 
-  page within the frame was modified, the page
-  is written to swap. 
+  /* 
+   * Tries to evict the frame given. If the 
+   * page within the frame was modified, the page
+   * is written to swap. 
+   */
   bool ft_evict_frame(frame);
 
 \end{lstlisting}
@@ -455,7 +459,7 @@ The data structure used for the supplemental page table is a hash map, because w
 
 \textbf{Eviction}
 
-We chose to implement the frame table as a hash map. Other options would have been a vector or a list. The problem of the vector is that it would occuppy the same space whether the frame table is full or not. However the benefit of the vector is that it has constant access by index. The list, on the other side occuppies less space than the vector in the when the memory is not occupied, but does not provide constant access. Therefore, we chose to implement the frame table as a hash map.
+We chose to implement the frame table as a hash map. Other options would have been a spare array or a list. The problem with the array is that it would occuppy the same space whether the frame table is full or not. However the benefit of the vector is that it has constant access by index. The list, on the other side occuppies less space than the vector in the when the memory is not occupied, but does not provide constant access. Therefore, we chose to implement the frame table as a hash map.
 Altough normally a frame table maps a physical address to a virtual address we chose the key of the frame table to be a virtual kernel address, the kernel virtual address, because of the strong correlation in pintos between the physical address and the kernel virtual address.
 
 \textbf{Swapping}
