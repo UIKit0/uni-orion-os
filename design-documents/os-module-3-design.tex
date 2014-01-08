@@ -103,7 +103,23 @@ In order to remove this limitations this part will implement the following three
     is unused and no frame can be evicted
     it returns NULL. */
   frame* ft_aloc_frame(void *upage);
-  
+
+  /*
+   * Frees the memory occupied by
+   * frame.
+   */
+  void 	ft_free_frame(frame *f);  
+
+  /*
+   * Pins the frame whose page contains the
+   * virtual address given; namely disqualifies 
+   * that frame from being evicted by the 
+   * LRU algorithm
+   */
+  void 	ft_pin_frame(const void *uaddr);
+  void 	ft_unpin_frame(const void *uaddr);
+
+
   //initializes the frame-table
   void	 ft_init();
 
@@ -130,11 +146,8 @@ In order to remove this limitations this part will implement the following three
   
   /* Tries to evict the frame given. If the 
   page within the frame was modified, the page
-  is written to swap. If dealloc is requested,
-  the memory is freed, otherwise, the memory is
-  kept for another page to be used. Returns true
-  if eviction was successful, false otherwise.
-  bool ft_evict_frame(frame, dealloc_page? );
+  is written to swap. 
+  bool ft_evict_frame(frame);
 
 \end{lstlisting}
 
@@ -269,7 +282,8 @@ In order to remove this limitations this part will implement the following three
 
 \begin{lstlisting}
 
-  //In process.c: Change palloc_get_page with ft_alloc_frame
+  //In process.c: Change palloc_get_page with ft_alloc_frame 
+  //              and palloc_free_page with ft_free_frame  
 
   ft_alloc_frame(flags, void *upage_addr) : returns a frame*
     void *kpage = palloc_get_page(flags, upage_addr);
@@ -278,64 +292,80 @@ In order to remove this limitations this part will implement the following three
       f.kpage = kpage;
       f.upage = upage;
       f.pinned = false;
-      f.he = ...
-	  lock_aquire(&ft_lock);
-	  frame.pinned = true;
+      
+      lock_aquire(&ft_lock);
+      frame.pinned = true;
       insert_hash(f.he);
-	  frame.pinned = false;
-	  lock_release(&ft_lock);
+      frame.pinned = false;	
+      lock_release(&ft_lock);
+      
       return f;
     }
     else {
-	  lru_f = ft_get_lru_frame();
+      lru_f = ft_get_lru_frame();
       if lru_f != NULL
-		frame.pinned = true;
-		ft_evict_frame(lru_f, false);
-		lru_f.upage = upage;
-		if (flags & PAL_ZERO)
-			memset (lru_f.kpage, 0, 1);
-		frame.pinned = false;
-		return lru_f
+	  ft_evict_frame(lru_f, false);
+	  lru_f.upage = upage;
+	  if (flags & PAL_ZERO)
+		  memset (lru_f.kpage, 0, 1);
+	  frame.pinned = false;
+	  return lru_f
     }
 
     return NULL;
   }
  
-  ft_evict_frame(frame, dealloc_page? )
+  ft_evict_frame(frame)
   {
-	if( pagedir_is_dirty(frame.upage) )
-	{
-		supl_pte = get_supl_pte(current_process, frame.upage);
-		supl_pte.slot_no = swap_out(frame.kpage)
-		if(supl_pte.slot_no < 0)
-			return false
-	}	
-	if( dealloc_page )
-	{
-		pagedir_clear_page(thread_current()->pagedir, upage);
-		palloc_free_page(frame.kpage);
-		lock_aquire(&ft_lock);
-		hash_delete(f.he);
-		lock_release(&ft_lock);
-		free(frame)
-	}
-	
-	return true
+      if( pagedir_is_dirty(frame.upage) )
+      {
+	  frame.pinned = true;
+	  supl_pte = get_supl_pte(current_process, frame.upage);
+	  supl_pte.slot_no = swap_out(frame.kpage)
+	  if(supl_pte.slot_no < 0)
+		  return false
+	  frame.pinned = false;
+      }	
+      
+      pagedir_clear_page(thread_current()->pagedir, f->upage);
+      
+      return true
+  }
+
+  ft_free_frame(frame)
+  {
+      pagedir_clear_page(thread_current()->pagedir, f->upage);
+      palloc_free_page(f->kpage);
+      
+      //remove frame from frame_table
+      frame->pinned = true;
+      lock_acquire(&ft_lock);
+      hash_delete(&frame_table, &(frame->he));
+      lock_release(&ft_lock);
+      free(frame);
   }
 	
   ft_get_lru_frame() : returns a frame*
-    //first iteration
-    for each frame in frame_table
-      if ( !pinned(frame) && !pagedir_is_accessed_or_dirty(thread_current()->pagedir, frame.upage) )
-		continue;
-      else 
-		return frame;
-    
-    for each frame in frame_table
-      if ( !pinned(frame) && !pagedir_is_accessed(thread_current()->pagedir, frame.upage) )
-		continue;
-      else 
-		return frame;
+      //first iteration
+      for each frame in frame_table
+	if ( !pinned(frame) && !pagedir_is_accessed_or_dirty(thread_current()->pagedir, frame.upage) )
+	    continue;
+	else 
+	    return frame;
+      
+      for each frame in frame_table
+	if ( !pinned(frame) && !pagedir_is_accessed(thread_current()->pagedir, frame.upage) )
+	    continue;
+	else 
+	    return frame;
+  
+
+  ft_pin_frame(const void *uaddr)
+  {
+      void *kpage = pagedir_get_page(thread_current()->pagedir, uaddr);
+      frame *f = frame_lookup(kpage);
+      f->pinned = false;
+  }
 
   
 \end{lstlisting}
