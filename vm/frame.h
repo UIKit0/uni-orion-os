@@ -2,6 +2,7 @@
 #define FRAME_H
 
 #include <hash.h>
+#include "vm/common.h"
 
 struct frame
 {
@@ -17,13 +18,11 @@ struct frame
 	struct hash_elem he; //needed for hash_table
 };
 
-typedef struct frame frame;
-
 //initializes the frame-table
 void	ft_init(void);
 void 	ft_insert_frame(frame *f);
 void 	ft_remove_frame(frame *f);
-frame* 	ft_alloc_frame(bool zero_page, const void *upage);
+frame* 	ft_alloc_frame(bool zero_page, void *upage);
 void 	ft_free_frame(frame *f);
 frame* 	ft_get_lru_frame(void);
 bool 	ft_evict_frame(frame* frame);

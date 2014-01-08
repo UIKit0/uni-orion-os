@@ -14,20 +14,20 @@ static struct hash frame_table;
 /* A lock for frame_table synch access*/
 struct lock ft_lock;
 
-frame* frame_lookup (const void *kpage);
-static bool frame_less (struct hash_elem *a_, struct hash_elem *b_, void *aux UNUSED);
-static unsigned frame_hash (struct hash_elem *f_, void *aux UNUSED);
+frame* frame_lookup (void *kpage);
+bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+unsigned frame_hash (const struct hash_elem *f_, void *aux UNUSED);
 
 /*hash function for the frame table.
 It should be computed using the kpage field
 of the frame */
-static unsigned frame_hash (struct hash_elem *f_, void *aux UNUSED)
+unsigned frame_hash (const struct hash_elem *f_, void *aux UNUSED)
 {
 	frame *f = hash_entry (f_, frame, he);
 	return hash_int ((int)f->kpage);
 }
 
-static bool frame_less (struct hash_elem *a_, struct hash_elem *b_, void *aux UNUSED)
+bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED)
 {
 	frame *a = hash_entry (a_, frame, he);
 	frame *b = hash_entry (b_, frame, he);
@@ -35,7 +35,7 @@ static bool frame_less (struct hash_elem *a_, struct hash_elem *b_, void *aux UN
 	return a->kpage < b->kpage;
 }
 
-frame* frame_lookup (const void *kpage)
+frame* frame_lookup (void *kpage)
 {
 	frame f;
 	struct hash_elem *e;
@@ -88,7 +88,7 @@ void ft_remove_frame(frame* frame)
   frame and return it. If no frame
   is unused and no frame can be evicted
   it returns NULL. */
-frame* 	ft_alloc_frame(bool zero_page, const void *page_u_addr)
+frame* 	ft_alloc_frame(bool zero_page, void *page_u_addr)
 {
 	enum palloc_flags flags = PAL_USER | (zero_page ? PAL_ZERO : 0);
 
