@@ -687,18 +687,25 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
       /* Get a page of memory. */
 	#ifdef VM
-      frame* uframe = ft_get_unused_frame();
-      uint8_t *kpage = uframe->page;
+      frame* uframe = ft_alloc_frame(false, upage);
+      uint8_t *kpage = uframe->kpage;
+
+      if(uframe == NULL)
+    	  PANIC ("Kernel panic - insufficient memory");
 	#else
       uint8_t *kpage = palloc_get_page (PAL_USER);
-	#endif
       if (kpage == NULL)
-        return false;
+              return false;
+	#endif
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
+		#ifdef VM
+    	  ft_evict_frame(uframe, true);
+		#else
           palloc_free_page (kpage);
+		#endif
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
@@ -706,7 +713,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 
         {
+		#ifdef VM
+    	  ft_evict_frame(uframe, true);
+		#else
           palloc_free_page (kpage);
+		#endif
           return false; 
         }
 
@@ -725,15 +736,25 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
+  void *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
 
+#ifdef VM
+  frame* frame = ft_alloc_frame(true, upage);
+  kpage = frame->kpage;
+#else
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+#endif
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
         *esp = PHYS_BASE;
       else
+	#ifdef VM
+    	ft_evict_frame(frame, true);
+	#else
         palloc_free_page (kpage);
+	#endif
     }
   return success;
 }
