@@ -1,11 +1,15 @@
 #ifndef USERPROG_PROCESS_H
 #define USERPROG_PROCESS_H
 
+#include <stdbool.h>
 #include <list.h>
 #include <hash.h>
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "userprog/common.h"
+#ifdef VM
+  #include "vm/common.h"
+#endif
 
 
 #define MAX_OPEN_FILES_PER_PROCESS 16
@@ -27,8 +31,13 @@ struct process_t {
 	struct hash_elem h_elem;
 	/* wating semaphore instead of thread_block/unblock hackarounds */
 	struct semaphore process_semaphore;
-	/*file used for denying writes */
+	/*file used for denying writes
+    and for lazy loading of executable*/
 	struct file * exe_file;
+#ifdef VM
+	//supplemental page table - needed for lazy loading
+	struct hash supl_pt;
+#endif
 };
 
 struct fd_list_link {
@@ -48,5 +57,10 @@ void filesys_unlock(void);
 
 process_t * process_current(void);
 process_t * find_process(pid_t pid);
+
+#ifdef VM
+  bool load_page_lazy(process_t *p, supl_pte *supl_pte);
+#endif
+
 
 #endif /* userprog/process.h */

@@ -21,6 +21,7 @@
 #include "threads/synch.h"
 #include "threads/malloc.h"
 #include "vm/frame.h"
+#include "vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -132,6 +133,9 @@ void init_process( process_t* proc ) {
   proc->exe_file = NULL;
   list_init( &proc->owned_file_descriptors);
   proc->num_of_opened_files = 0;
+#ifdef VM
+  supl_pt_init(&proc->supl_pt);
+#endif
   sema_init( &(proc->process_semaphore), 0);
 }
 
@@ -367,6 +371,11 @@ process_exit (void)
   }
   lock_acquire(&file_sys_lock);
   free_fd_list();
+
+#ifdef VM
+  //supl_pt_free(&(current->supl_pt));
+#endif
+
   if(current->exe_file != NULL) {    
     file_allow_write(current->exe_file);    
     file_close(current->exe_file);    
@@ -480,6 +489,9 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
+static bool load_page(struct file *file, off_t ofs, uint8_t *upage,
+		uint32_t read_bytes, uint32_t zero_bytes, bool writable);
+//static bool load_page_lazy(uint8_t *upage);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -677,56 +689,91 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
-  while (read_bytes > 0 || zero_bytes > 0) 
-    {
-      /* Calculate how to fill this page.
-         We will read PAGE_READ_BYTES bytes from FILE
-         and zero the final PAGE_ZERO_BYTES bytes. */
-      size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-      size_t page_zero_bytes = PGSIZE - page_read_bytes;
+	while (read_bytes > 0 || zero_bytes > 0) {
+		/* Calculate how to fill this page.
+		 We will read PAGE_READ_BYTES bytes from FILE
+		 and zero the final PAGE_ZERO_BYTES bytes. */
+		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      /* Get a page of memory. */
-	#ifdef VM
-      frame* uframe = ft_alloc_frame(false, upage);
-      uint8_t *kpage = uframe->kpage;
+#ifdef VM
+		/* Save page info in supplemental page table*/
+		supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
+		spte->virt_page_no = pg_no(upage);
+		spte->ofs = ofs;
+		spte->page_read_bytes = page_read_bytes;
+		spte->page_zero_bytes = page_zero_bytes;
+		spte->virt_page_addr = upage;
+		spte->writable = writable;
 
-      if(uframe == NULL)
-    	  PANIC ("Kernel panic - insufficient memory");
-	#else
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
-              return false;
-	#endif
+		supl_pt_insert(&(process_current()->supl_pt), spte);
 
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-        {
-		#ifdef VM
-    	  ft_free_frame(uframe);
-		#else
-          palloc_free_page (kpage);
-		#endif
-          return false; 
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
-        {
-		#ifdef VM
-    	  ft_free_frame(uframe);
-		#else
-          palloc_free_page (kpage);
-		#endif
-          return false; 
-        }
-
+#else
+		load_page(file, ofs, upage, read_bytes, zero_bytes, writable);
+#endif
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
+      ofs += PGSIZE;
     }
   return true;
+}
+
+static bool
+load_page(struct file *file, off_t ofs, uint8_t *upage,
+		uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
+	uint8_t *kpage;
+
+#ifdef VM
+	frame* frame = ft_alloc_frame(false, upage);
+	if(frame == NULL)
+	return false;
+
+	kpage = frame->kpage;
+#else
+	kpage = palloc_get_page(PAL_USER);
+	if (kpage == NULL )
+		return false;
+#endif
+
+	//advance to offset - might be redundant when VM is not implemented, but is safer
+	file_seek(file, ofs);
+
+	/* Load this page. */
+	if (file_read(file, kpage, read_bytes) != (int) read_bytes) {
+#ifdef VM
+		ft_free_frame(frame);
+#else
+		palloc_free_page(kpage);
+#endif
+	}
+	memset(kpage + read_bytes, 0, zero_bytes);
+
+	/* Add the page to the process's address space. */
+	if (!install_page(upage, kpage, writable)) {
+#ifdef VM
+		ft_free_frame(frame);
+#else
+		palloc_free_page(kpage);
+#endif
+		return false;
+	}
+
+	return true;
+}
+
+bool
+load_page_lazy(process_t *p, supl_pte *spte)
+{
+	struct file *file = p->exe_file;
+	size_t page_read_bytes = spte->page_read_bytes;
+	size_t page_zero_bytes = spte->page_zero_bytes;
+	bool writable = spte->writable;
+	off_t ofs = spte->ofs;
+	void *upage = spte->virt_page_addr;
+
+	return load_page(file, ofs, upage, page_read_bytes, page_zero_bytes, writable);
 }
 
 /* Create a minimal stack by mapping a zeroed page at the top of
@@ -746,7 +793,7 @@ setup_stack (void **esp)
 #endif
   if (kpage != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      success = install_page (upage, kpage, true);
       if (success)
         *esp = PHYS_BASE;
       else

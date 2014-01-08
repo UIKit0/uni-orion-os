@@ -4,12 +4,35 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "vm/page.h"
+#include "userprog/process.h"
+
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+
+#define INVALID_ACCESS()			\
+if(user)							\
+{									\
+	thread_exit();					\
+}									\
+else								\
+{									\
+	if(is_kernel_vaddr(fault_addr))	\
+	{								\
+		kill(f);					\
+	}								\
+	else							\
+	{								\
+		f->eip = (void *)f->eax;	\
+		f->eax = -1;				\
+	}								\
+}									\
+
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -140,9 +163,6 @@ page_fault (struct intr_frame *f)
      be assured of reading CR2 before it changed). */
   intr_enable ();
 
-
-
-
   /* Count page faults. */
   page_fault_cnt++;
 
@@ -151,14 +171,33 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  f->eip = f->eax;
-  f->eax = -1;
-  if(user)
-    thread_exit ();
+#ifdef VM
+
+  if(not_present)
+  {
+	  process_t *p = process_current();
+	  supl_pte *spte = supl_pt_get_spte(p, fault_addr);
+	  if(spte == NULL)
+	  {
+		  //invalid access
+		  INVALID_ACCESS();
+	  }
+	  else if(!load_page_lazy(p, spte))
+	  {
+		  kill(f);
+	  }
+  }
+  else {
+	  //writing r/o page
+	  INVALID_ACCESS();
+  }
+
+#else
+  INVALID_ACCESS();
+#endif
+
   return;
   
-  
-
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
