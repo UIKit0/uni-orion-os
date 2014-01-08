@@ -15,29 +15,29 @@ static struct hash frame_table;
 struct lock ft_lock;
 
 frame* frame_lookup (const void *kpage);
-static bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
-static unsigned frame_hash (const struct hash_elem *f_, void *aux UNUSED);
+static bool frame_less (struct hash_elem *a_, struct hash_elem *b_, void *aux UNUSED);
+static unsigned frame_hash (struct hash_elem *f_, void *aux UNUSED);
 
 /*hash function for the frame table.
 It should be computed using the kpage field
 of the frame */
-static unsigned frame_hash (const struct hash_elem *f_, void *aux UNUSED)
+static unsigned frame_hash (struct hash_elem *f_, void *aux UNUSED)
 {
-	const frame *f = hash_entry (f_, frame, he);
+	frame *f = hash_entry (f_, frame, he);
 	return hash_int ((int)f->kpage);
 }
 
-static bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED)
+static bool frame_less (struct hash_elem *a_, struct hash_elem *b_, void *aux UNUSED)
 {
-	const frame *a = hash_entry (a_, frame, he);
-	const frame *b = hash_entry (b_, frame, he);
+	frame *a = hash_entry (a_, frame, he);
+	frame *b = hash_entry (b_, frame, he);
 
 	return a->kpage < b->kpage;
 }
 
 frame* frame_lookup (const void *kpage)
 {
-	struct frame f;
+	frame f;
 	struct hash_elem *e;
 
 	f.kpage = kpage;
@@ -51,7 +51,8 @@ frame* frame_lookup (const void *kpage)
  */
 void ft_init(void)
 {
-	hash_init(&frame_table, frame_hash, frame_less, NULL);
+	hash_init(&frame_table, &frame_hash, frame_less, NULL);
+	lock_init(&ft_lock);
 }
 
 /**
@@ -62,8 +63,8 @@ void ft_insert_frame(frame *f)
 	f->pinned = true;
 	lock_acquire(&ft_lock);
 	hash_insert(&frame_table, &(f->he));
-	f->pinned = false;
 	lock_release(&ft_lock);
+	f->pinned = false;
 }
 
 /**
