@@ -702,7 +702,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
 		#ifdef VM
-    	  ft_evict_frame(uframe, true);
+    	  ft_free_frame(uframe);
 		#else
           palloc_free_page (kpage);
 		#endif
@@ -714,7 +714,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       if (!install_page (upage, kpage, writable)) 
         {
 		#ifdef VM
-    	  ft_evict_frame(uframe, true);
+    	  ft_free_frame(uframe);
 		#else
           palloc_free_page (kpage);
 		#endif
@@ -751,7 +751,7 @@ setup_stack (void **esp)
         *esp = PHYS_BASE;
       else
 	#ifdef VM
-    	ft_evict_frame(frame, true);
+    	ft_free_frame(frame);
 	#else
         palloc_free_page (kpage);
 	#endif

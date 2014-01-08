@@ -24,9 +24,11 @@ void	ft_init(void);
 void 	ft_insert_frame(frame *f);
 void 	ft_remove_frame(frame *f);
 frame* 	ft_alloc_frame(bool zero_page, const void *upage);
+void 	ft_free_frame(frame *f);
 frame* 	ft_get_lru_frame(void);
-bool 	ft_evict_frame(frame* frame, bool dealloc_page);
+bool 	ft_evict_frame(frame* frame);
 void 	ft_pin_frame(const void *uaddr);
 void 	ft_unpin_frame(const void *uaddr);
+void 	ft_free_frame(frame *f);
 
 #endif

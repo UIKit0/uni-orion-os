@@ -106,7 +106,7 @@ frame* 	ft_alloc_frame(bool zero_page, const void *page_u_addr)
 		{
 			lru_f->pinned = true;
 
-			if(!ft_evict_frame(lru_f, false))
+			if(!ft_evict_frame(lru_f))
 			{
 				return NULL;
 			}
@@ -122,6 +122,13 @@ frame* 	ft_alloc_frame(bool zero_page, const void *page_u_addr)
 	}
 
 	return NULL ; //not reachable
+}
+
+void ft_free_frame(frame *f)
+{
+	pagedir_clear_page(thread_current()->pagedir, f->upage);
+	palloc_free_page(f->kpage);
+	ft_remove_frame(f);
 }
 
 /*
@@ -140,7 +147,7 @@ frame* ft_get_lru_frame(void)
  * kept for another page to be used. Returns true
  * if eviction was successful, false otherwise.
 */
-bool ft_evict_frame(frame* frame, bool dealloc_page)
+bool ft_evict_frame(frame* frame)
 {
 	struct thread *t = thread_current();
 
@@ -154,12 +161,8 @@ bool ft_evict_frame(frame* frame, bool dealloc_page)
 		//if(supl_pte.slot_no < 0)
 			//	return false
 	}
-	if( dealloc_page )
-	{
-		pagedir_clear_page(t->pagedir, frame->upage);
-		palloc_free_page(frame->kpage);
-		ft_remove_frame(frame);
-	}
+
+	pagedir_clear_page(t->pagedir, frame->upage);
 
 	return true;
 }
