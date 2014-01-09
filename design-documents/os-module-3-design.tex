@@ -591,13 +591,23 @@ We need to allocate more pages for the stack when the stack goes higher. Also we
 	  void* esp = current_thread()->esp;
 	  if ( esp - fault_addr == 32  || esp - fault_addr == 4 )
 	  {
-	    if ( stack_grow() )
-	    {
-	      return false;
-	    }
 	    return true;
 	  }
 	  return false;
+	}
+
+	static bool
+	page_fault( struct intr_frame* f)
+	{
+	  ...
+	  if ( is_stack_page_fault( fault_addr )
+	  {
+	      if( !stack_grow() )
+	      {
+		kill(f);
+	      }
+	  }
+	  ...
 	}
 
 \end{lstlisting}
