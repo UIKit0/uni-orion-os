@@ -685,6 +685,11 @@ static void init_thread(struct thread *t, const char *name, int priority) {
 	strlcpy(t->name, name, sizeof t->name);
 	t->stack = (uint8_t *) t + PGSIZE;
 
+#ifdef VM
+	t->numberOfStackGrows = 0;
+	t->last_stack_page = PHYS_BASE;
+#endif
+
 	if (thread_mlfqs) {
 		//inherit recent_cpu and nice from parents if possible
 		struct thread* cthread = running_thread();

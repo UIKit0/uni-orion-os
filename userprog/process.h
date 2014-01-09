@@ -60,6 +60,7 @@ process_t * find_process(pid_t pid);
 
 #ifdef VM
   bool load_page_lazy(process_t *p, supl_pte *supl_pte);
+  bool stack_growth();
 #endif
 
 

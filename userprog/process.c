@@ -776,6 +776,33 @@ load_page_lazy(process_t *p, supl_pte *spte)
 	return load_page(file, ofs, upage, page_read_bytes, page_zero_bytes, writable);
 }
 
+bool
+stack_growth()
+{
+  /*if ( thread_current()->numberOfStackGrows > 20 )
+  {
+    return false;
+  }*/
+  void* upage = thread_current()->last_stack_page - PGSIZE;
+  frame* frame = ft_alloc_frame( true, upage );
+  uint8_t* kpage = frame->kpage;
+
+  if ( kpage != NULL )
+  {
+    if ( install_page( ( (uint8_t*) upage  ), kpage, true ) )
+    {
+      thread_current()->last_stack_page = upage;
+      thread_current()->numberOfStackGrows;
+      return true;
+    }
+    else
+    {
+      ft_free_frame( frame );
+    }
+  }
+  return false;
+}
+
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
@@ -783,7 +810,8 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-  void *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  void *upage = ((uint8_t *) thread_current()->last_stack_page) - PGSIZE;
+
 
 #ifdef VM
   frame* frame = ft_alloc_frame(true, upage);
@@ -795,7 +823,11 @@ setup_stack (void **esp)
     {
       success = install_page (upage, kpage, true);
       if (success)
+      {
         *esp = PHYS_BASE;
+        thread_current()->last_stack_page = upage;
+        thread_current()->numberOfStackGrows++;
+      }
       else
 	#ifdef VM
     	ft_free_frame(frame);

@@ -14,6 +14,7 @@ static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+static bool is_stack_page_fault( void* fault_addr );
 
 #define INVALID_ACCESS()			\
 if(user)							\
@@ -172,7 +173,13 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 
 #ifdef VM
-
+  if( is_stack_page_fault( fault_addr ) )
+  {
+      if ( !stack_growth() )
+      {
+        kill(f);
+      }
+  }
   if(not_present)
   {
 	  process_t *p = process_current();
@@ -209,3 +216,13 @@ page_fault (struct intr_frame *f)
   kill (f);
 }
 
+bool
+is_stack_page_fault( void* fault_addr )
+{
+  void *esp = thread_current()->esp;
+  if ( ( esp - fault_addr == 32 ) || ( esp - fault_addr == 4 ) )
+  {
+      return true;
+  }
+  return false;
+}

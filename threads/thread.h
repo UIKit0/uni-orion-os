@@ -108,6 +108,12 @@ struct thread
     pid_t pid;
 #endif
 
+#ifdef VM
+    void* esp;
+    void* last_stack_page;
+    int numberOfStackGrows;
+#endif
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 };
