@@ -619,15 +619,18 @@ We will create a function that will grow the stack. The function will be somethi
 	  return false;
       }
 
-      void *upage = thread_current()->last_stack_page;
+      
+      void *upage = thread_current()->last_stack_page - PGSIZE; 
+      //last_stack_page is initialized in setup_stack to PHYS_BASE - PGSIZE
+
       frame *frame = ft_alloc_free( true, upage );
       uint8_t *kpage = frame->kpage;
  
       if ( kpage != NULL )
       {
-	if ( install_page ( ( ( uint8_t* ) upage  ) - PGSIZE, kpage, true )
+	if ( install_page ( ( ( uint8_t* ) upage ), kpage, true )
 	{
-	  thread_current()->last_stack_page = thread_current()->last_stack_page - PGSIZE;
+	  thread_current()->last_stack_page = upage;
 	  thread_current()->numberOfStackGrows++;
 	  return true;
 	}
