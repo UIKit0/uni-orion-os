@@ -382,19 +382,17 @@ In order to remove this limitations this part will implement the following three
       free(frame);
   }
 	
-  ft_get_lru_frame() : returns a frame*
-      //first iteration
-      for each frame in frame_table
-	if ( !pinned(frame) && !pagedir_is_accessed_or_dirty(thread_current()->pagedir, frame.upage) )
-	    continue;
-	else 
-	    return frame;
-      
-      for each frame in frame_table
-	if ( !pinned(frame) && !pagedir_is_accessed(thread_current()->pagedir, frame.upage) )
-	    continue;
-	else 
-	    return frame;
+	frame* ft_get_lru_frame()
+	{
+    	while (true) {
+			if ( !pinned(frame) && !pagedir_is_accessed(thread_current()->pagedir, frame.upage) ) {
+				// unset the accessed flag
+				continue
+			} else {
+	    		return frame;
+	    	}
+	    }
+    }
   
 
   ft_pin_frame(const void *uaddr)
@@ -413,33 +411,67 @@ In order to remove this limitations this part will implement the following three
 	
 	//In swap.c:
 	
+	// Table used to identify free swap slots
 	static struct bitmap swap_table;
-	struct block *fs_swap_device;
-	
+
+	// Block device for storing the swap slots
+	struct block *swap_block;
+
+	// Number of pages that fit inside a block sector
+	const int PAGES_PER_SECTOR = BLOCK_SECTOR_SIZE / PGSIZE;
+
+	/*
+	 * Buffer of size BLOCK_SECTOR_SIZE for storing an entire sector.
+	 * This is used because block_read only works with chunks of BLOCK_SECTOR_SIZE.
+	 */
+	void *bounce_buffer;
+
 	swap_init()
 	{
-		fs_swap_device = block_get_role(BLOCK_SWAP);
-		swap_size = block_size(fs_swap_device);
+		swap_block = block_get_role(BLOCK_SWAP);
+		swap_size = block_size(swap_block) * BLOCK_SECTOR_SIZE;
 		bitmap_create( swap_size / PGSIZE );
+		bounce_buffer = malloc(BLOCK_SECTOR_SIZE);
 	}
 	
-	swap_in(kpage, slot_no)
+	void swap_in(kpage, slot_no)
 	{
-		file_seek(swap_file, slot_no * PGSIZE);
-		
-		block_read(swap_file, PGSIZE, kpage);
-		
-		bitmap_reset(swap_file, slot_no);
+		block_sector_t slot_sector = slot_no / PAGES_PER_SECTOR;
+		unsigned slot_offset = slot_no % PAGES_PER_SECTOR;
+
+		// read the sector into the bounce buffer
+		block_read(swap_block, slot_sector, bounce_buffer);
+
+		// copy the page from the bounce_buffer to kpage
+		memcpy(kpage, bounce_buffer + slot_offset * PGSIZE, PGSIZE);
+
+		// mark the swap slot as empty
+		bitmap_reset(swap_table, slot_no);
 	}
 	
-	int swap_out(kpage)
+	bool swap_out(kpage)
 	{
+		// find an empty swap slot
 		slot_no = bitmap_scan_and_flip(&swap_table, true);
-		if(no slot available)
-			return -1;
-		file_seek(swap_file, slot_no * PGSIZE);
-		
-		block_write(swap_file, PGSIZE, kpage);
+
+		if(no slot available) return false;
+
+		block_sector_t slot_sector = slot_no / PAGES_PER_SECTOR;
+		unsigned slot_offset = slot_no % PAGES_PER_SECTOR;
+
+		if(no slot available) return -1;
+
+		// read the sector into the bounce buffer
+		block_read(swap_block, slot_sector, bounce_buffer);
+
+		// copy the page from the bounce_buffer to kpage
+		memcpy(bounce_buffer + slot_offset * PGSIZE,k page, PGSIZE);
+
+		// mark the swap slot as used
+
+		// write the sector back to the swap block
+
+		return true;
 	}
 	
 \end{lstlisting}
@@ -459,12 +491,17 @@ The data structure used for the supplemental page table is a hash map, because w
 
 \textbf{Eviction}
 
-We chose to implement the frame table as a hash map. Other options would have been a spare array or a list. The problem with the array is that it would occuppy the same space whether the frame table is full or not. However the benefit of the vector is that it has constant access by index. The list, on the other side occuppies less space than the vector in the when the memory is not occupied, but does not provide constant access. Therefore, we chose to implement the frame table as a hash map.
-Altough normally a frame table maps a physical address to a virtual address we chose the key of the frame table to be a virtual kernel address, the kernel virtual address, because of the strong correlation in pintos between the physical address and the kernel virtual address.
+We chose to implement the frame table as a hash map. Other options would have been a sparse array or a list. The problem with the array is that it would occuppy the same space whether the frame table is full or not. However the benefit of the array is that it has constant access by index. The list, on the other side occuppies less space than the vector in the when the memory is not occupied, but does not provide constant access time. Therefore, we chose to implement the frame table as a hash map.
+Altough normally a frame table maps a physical address to a virtual address we chose the key of the frame table to be a virtual kernel address, because of the strong correlation in pintos between the physical address and the kernel virtual address.
+
+We will be using the LRU approximation algorithm called second-chance. This works by iterating over all the frames present in the main memory and checking whether they have been accessed recently or not. The first frame not recently accessed is chosen to be swaped out. Each time we pass over a recently accessed frame, we change its accessed status to false. The iteration works in a circle loop, so in the worst case, the starting frame will be chosen to be swaped out (having it's accessed status set to false the first iteration).
+
+This is implemented in the ft_get_lru_frame function, which uses pagedir_set_accessed and pagedir_is_accessed functions to determine the accessed status of a page.
 
 \textbf{Swapping}
-The swap table is implemented using a bitmap, because we only need to keep track whether a slot is occupied or not, therefore, a bit/slot is enough. 
-The advantage of this solution against to other solutions is that it occupies less space.
+The swap table is implemented using a bitmap, because we only need to keep track whether a slot is occupied or not, therefore, a bit/slot is enough. The advantage of this solution against to other solutions is that it occupies less space.
+
+We will be using the SWAP block device to store the swaped pages. Unfortunately, the block drivers only work by reading / writing whole sectors from / to main memory. This means we need to keep an additional bounce buffer in which to store the entire sector containing the page. This requires an additional memcpy to insert / extract the page from the bounce buffer. This is unfortunate, but we found no better solution, since it's also the way the filesystem is implemented.
 
 \section{Tests}
 
@@ -484,8 +521,7 @@ virtual address space.
 
 \subsection{Data Structures and Functions}
 
-We need to allocate more pages for the stack when the stack goes higher. Also we need to
-impose some absolute limit so it can not get higher. So we need to detect when a page fault occurred because of the growth of the stack. 
+We need to allocate more pages for the stack when the stack goes higher. Also we need to impose some absolute limit so it can not get higher. So we need to detect when a page fault occurred because of the growth of the stack. 
 
 \begin{lstlisting} 
 
@@ -564,7 +600,7 @@ impose some absolute limit so it can not get higher. So we need to detect when a
 We will create a function that will grow the stack. The function will be something like this:
       \\1. Get a free page. 
       \\2. If the page is not null, try to connect the  upage with the kpage.
-      \\3. If is not possible to connect them dealloc the frame with the page and return faslse.
+      \\3. If is not possible to connect them dealloc the frame with the page and return false.
       \\4. Returns true is everthing works.
 
 \begin{lstlisting}

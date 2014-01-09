@@ -8,10 +8,9 @@
 #include "userprog/pagedir.h"
 #include "string.h"
 
-
-static unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED);
-static bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
-supl_pte* page_lookup (process_t *process, const uint32_t pg_no);
+static unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED);
+static bool page_less(const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+supl_pte* page_lookup(process_t *process, const uint32_t pg_no);
 
 void supl_pt_init(struct hash *supl_pt)
 {
@@ -30,17 +29,14 @@ void supl_pt_free(struct hash *h)
 
 }
 
-static unsigned
-page_hash (const struct hash_elem *p_, void *aux UNUSED)
+static unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED)
 {
 	const supl_pte *p = hash_entry (p_, supl_pte, he);
 	return hash_int (p->virt_page_no);
 }
 
 /* Returns true if page a precedes page b. */
-static bool
-page_less (const struct hash_elem *a_, const struct hash_elem *b_,
-void *aux UNUSED)
+static bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED)
 {
 	const supl_pte *a = hash_entry (a_, supl_pte, he);
 	const supl_pte *b = hash_entry (b_, supl_pte, he);
@@ -53,8 +49,7 @@ void *aux UNUSED)
  * Returns the supplemental page table entry, containing the given virtual address,
  * or a null pointer if no such page exists.
 */
-supl_pte *
-page_lookup (process_t *p, const uint32_t pg_no)
+supl_pte *page_lookup (process_t *p, const uint32_t pg_no)
 {
 	struct supl_pte spte;
 	struct hash_elem *e;
@@ -67,7 +62,7 @@ page_lookup (process_t *p, const uint32_t pg_no)
 
 void supl_pt_insert(struct hash *spt, supl_pte *spte)
 {
-	//TODO: might need synch
+	//TODO: might need sync
 	hash_insert(spt, &(spte->he));
 }
 
@@ -76,8 +71,7 @@ void supl_pt_remove(struct hash *spt, supl_pte *spte)
 	hash_delete(spt, &(spte->he));
 }
 
-supl_pte*
-supl_pt_get_spte(process_t *p, void *uaddr)
+supl_pte *supl_pt_get_spte(process_t *p, void *uaddr)
 {
 	uint32_t pg_nr = pg_no(uaddr);
 	return page_lookup(p, pg_nr);

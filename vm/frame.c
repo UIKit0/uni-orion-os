@@ -8,10 +8,10 @@
 
 #include <string.h>
 
-/* The frametable */
+/* The frame table */
 static struct hash frame_table;
 
-/* A lock for frame_table synch access*/
+/* A lock for frame_table synchronized access*/
 struct lock ft_lock;
 
 frame* frame_lookup (void *kpage);
