@@ -405,11 +405,11 @@ void syscall_exec(struct intr_frame *f) {
 
 static void syscall_handler (struct intr_frame *f) 
 {
-	thread_current()->esp = f->esp;
 	if(!is_valid_user_address_range_read(f->esp, 4)) {
 		kill_current_process();		
 		return;
 	}
+	thread_current()->esp = f->esp;
 
   	int syscall_no = ((int*)f->esp)[0];	
 	switch (syscall_no) {

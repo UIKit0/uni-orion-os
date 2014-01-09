@@ -224,7 +224,7 @@ bool
 is_stack_page_fault( void* fault_addr, void *esp )
 {
   if ( ( esp - fault_addr == 32 ) || ( esp - fault_addr == 4 )
-		  || (fault_addr > esp && fault_addr < thread_current()->last_stack_page) )
+		  || (fault_addr >= esp && fault_addr < thread_current()->last_stack_page) )
   {
       return true;
   }
