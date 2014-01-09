@@ -33,8 +33,7 @@ In order to remove this limitations this part will implement the following three
 	uint32_t	virt_page_no; 			
 	// the virtual address of the page
 	void*		virt_page_addr;			
-	/* the offset in file the bytes to be stored 
-	   in the page must be read from */
+	/* the offset in exe_file where the page starts */
 	off_t 		ofs;				
 	/* number of bytes to read from the file and
 	    store in the page */
