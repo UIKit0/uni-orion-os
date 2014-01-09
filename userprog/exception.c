@@ -14,7 +14,7 @@ static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
-static bool is_stack_page_fault( void* fault_addr );
+static bool is_stack_page_fault( void* fault_addr, void *esp );
 
 #define INVALID_ACCESS()			\
 if(user)							\
@@ -173,25 +173,29 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 
 #ifdef VM
-  if( is_stack_page_fault( fault_addr ) )
-  {
-      if ( !stack_growth() )
-      {
-        kill(f);
-      }
-  }
   if(not_present)
   {
-	  process_t *p = process_current();
-	  supl_pte *spte = supl_pt_get_spte(p, fault_addr);
-	  if(spte == NULL)
-	  {
-		  //invalid access
-		  INVALID_ACCESS();
+	  void *esp = user ? f->esp : thread_current()->esp;
+	  if( is_stack_page_fault( fault_addr, esp ) )
+	    {
+	        if ( !stack_growth() )
+	        {
+	          kill(f);
+	        }
 	  }
-	  else if(!load_page_lazy(p, spte))
+	  else
 	  {
-		  kill(f);
+		  process_t *p = process_current();
+		  supl_pte *spte = supl_pt_get_spte(p, fault_addr);
+		  if(spte == NULL)
+		  {
+			  //invalid access
+			  INVALID_ACCESS();
+		  }
+		  else if(!load_page_lazy(p, spte))
+		  {
+			  kill(f);
+		  }
 	  }
   }
   else {
@@ -217,10 +221,10 @@ page_fault (struct intr_frame *f)
 }
 
 bool
-is_stack_page_fault( void* fault_addr )
+is_stack_page_fault( void* fault_addr, void *esp )
 {
-  void *esp = thread_current()->esp;
-  if ( ( esp - fault_addr == 32 ) || ( esp - fault_addr == 4 ) )
+  if ( ( esp - fault_addr == 32 ) || ( esp - fault_addr == 4 )
+		  || (fault_addr > esp && fault_addr < thread_current()->last_stack_page) )
   {
       return true;
   }
