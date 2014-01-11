@@ -811,13 +811,13 @@ stack_growth(int nr_of_pages)
 				thread_current()->last_stack_page = upage;
 				thread_current()->numberOfStackGrows++;
 
-      //Saves the page info into supplemental table
-      #ifdef VM
-        supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
-        spte->virt_page_no = pg_no(upage);
-        spte->virt_page_addr = upage;
-        supl_pt_insert(&(process_current()->supl_pt), spte);
-      #endif
+		        #ifdef VM
+				//Saves the page info into supplemental table
+			        supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
+			        spte->virt_page_no = pg_no(upage);
+			        spte->virt_page_addr = upage;
+			        supl_pt_insert(&(process_current()->supl_pt), spte);
+		       #endif
 
 			}
 			else
