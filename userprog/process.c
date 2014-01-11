@@ -728,7 +728,9 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 #ifdef VM
 	frame* frame = ft_alloc_frame(false, upage);
 	if(frame == NULL)
-	return false;
+	{
+		PANIC("Kernel panic - Insufficient memory");
+	}
 
 	kpage = frame->kpage;
 #else
@@ -777,30 +779,52 @@ load_page_lazy(process_t *p, supl_pte *spte)
 }
 
 bool
-stack_growth()
+stack_growth(int nr_of_pages)
 {
-  /*if ( thread_current()->numberOfStackGrows > 20 )
-  {
-    return false;
-  }*/
-  void* upage = thread_current()->last_stack_page - PGSIZE;
-  frame* frame = ft_alloc_frame( true, upage );
-  uint8_t* kpage = frame->kpage;
+	//check if stack limit exceeded
+	if ((thread_current()->numberOfStackGrows + nr_of_pages) * PGSIZE >= MAX_STACK_SIZE)
+	{
+		return false;
+	}
 
-  if ( kpage != NULL )
-  {
-    if ( install_page( ( (uint8_t*) upage  ), kpage, true ) )
-    {
-      thread_current()->last_stack_page = upage;
-      thread_current()->numberOfStackGrows;
-      return true;
-    }
-    else
-    {
-      ft_free_frame( frame );
-    }
-  }
-  return false;
+	void *upage, *kpage;
+
+	while (nr_of_pages)
+	{
+
+		upage = thread_current()->last_stack_page - PGSIZE;
+
+	#ifdef VM
+		frame* frame = ft_alloc_frame(true, upage);
+		if(frame == NULL)
+		{
+			PANIC("Kernel panic - Insufficient memory");
+		}
+		kpage = frame->kpage;
+	#else
+		kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+	#endif
+		if (kpage != NULL )
+		{
+			if (install_page(upage, kpage, true))
+			{
+				thread_current()->last_stack_page = upage;
+				thread_current()->numberOfStackGrows++;
+			}
+			else
+			{
+		#ifdef VM
+				ft_free_frame(frame);
+		#else
+				palloc_free_page(kpage);
+		#endif
+				return false;
+			}
+			--nr_of_pages;
+		}
+	}
+
+	return true;
 }
 
 /* Create a minimal stack by mapping a zeroed page at the top of
@@ -808,34 +832,12 @@ stack_growth()
 static bool
 setup_stack (void **esp) 
 {
-  uint8_t *kpage;
-  bool success = false;
-  void *upage = ((uint8_t *) thread_current()->last_stack_page) - PGSIZE;
-
-
-#ifdef VM
-  frame* frame = ft_alloc_frame(true, upage);
-  kpage = frame->kpage;
-#else
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-#endif
-  if (kpage != NULL) 
-    {
-      success = install_page (upage, kpage, true);
-      if (success)
-      {
-        *esp = PHYS_BASE;
-        thread_current()->last_stack_page = upage;
-        thread_current()->numberOfStackGrows++;
-      }
-      else
-	#ifdef VM
-    	ft_free_frame(frame);
-	#else
-        palloc_free_page (kpage);
-	#endif
-    }
-  return success;
+  if(stack_growth(1))
+  {
+	  *esp = PHYS_BASE;
+	  return true;
+  }
+  return false;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel

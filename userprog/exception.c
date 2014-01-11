@@ -14,7 +14,7 @@ static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
-static bool is_stack_page_fault( void* fault_addr, void *esp );
+static int is_stack_page_fault( void* fault_addr, void *esp );
 
 #define INVALID_ACCESS()			\
 if(user)							\
@@ -25,6 +25,7 @@ else								\
 {									\
 	if(is_kernel_vaddr(fault_addr))	\
 	{								\
+		printf("Access denied!\n"); \
 		kill(f);					\
 	}								\
 	else							\
@@ -176,10 +177,12 @@ page_fault (struct intr_frame *f)
   if(not_present)
   {
 	  void *esp = user ? f->esp : thread_current()->esp;
-	  if( is_stack_page_fault( fault_addr, esp ) )
+	  int missing_pages_nr = is_stack_page_fault(fault_addr, esp);
+	  if( missing_pages_nr > 0 )
 	    {
-	        if ( !stack_growth() )
+	        if ( !stack_growth(missing_pages_nr) )
 	        {
+	          printf("Stack cannot grow!\n");
 	          kill(f);
 	        }
 	  }
@@ -190,16 +193,20 @@ page_fault (struct intr_frame *f)
 		  if(spte == NULL)
 		  {
 			  //invalid access
+			  //printf("Invalid access. Page not found!\n");
 			  INVALID_ACCESS();
 		  }
 		  else if(!load_page_lazy(p, spte))
 		  {
+			  //page not found
+			  //printf("Page could not be loaded");
 			  kill(f);
 		  }
 	  }
   }
   else {
 	  //writing r/o page
+	  //printf("Invalid access\n");
 	  INVALID_ACCESS();
   }
 
@@ -220,13 +227,17 @@ page_fault (struct intr_frame *f)
   kill (f);
 }
 
-bool
-is_stack_page_fault( void* fault_addr, void *esp )
+/*
+ * if fault_addr should belong to stack returns the number
+ * of pages that need to be allocated to stack. Otherwise
+ * returns 0.
+ */
+int is_stack_page_fault( void* fault_addr, void *esp )
 {
   if ( ( esp - fault_addr == 32 ) || ( esp - fault_addr == 4 )
 		  || (fault_addr >= esp && fault_addr < thread_current()->last_stack_page) )
   {
-      return true;
+      return (thread_current()->last_stack_page - esp) / PGSIZE + 1;
   }
-  return false;
+  return 0;
 }

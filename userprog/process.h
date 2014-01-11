@@ -13,6 +13,7 @@
 
 
 #define MAX_OPEN_FILES_PER_PROCESS 16
+#define MAX_STACK_SIZE (1 * 256 * 1024)
 
 struct process_t {
 	/* process id of this process */
@@ -60,7 +61,7 @@ process_t * find_process(pid_t pid);
 
 #ifdef VM
   bool load_page_lazy(process_t *p, supl_pte *supl_pte);
-  bool stack_growth();
+  bool stack_growth(int nr_of_pages);
 #endif
 
 
