@@ -9,41 +9,25 @@
 #include <string.h>
 
 /* The frame table */
-static struct hash frame_table;
+static struct list frame_table;
 
 /* A lock for frame_table synchronized access*/
 struct lock ft_lock;
 
 frame* frame_lookup (void *kpage);
-bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
-unsigned frame_hash (const struct hash_elem *f_, void *aux UNUSED);
-
-/*hash function for the frame table.
-It should be computed using the kpage field
-of the frame */
-unsigned frame_hash (const struct hash_elem *f_, void *aux UNUSED)
-{
-	frame *f = hash_entry (f_, frame, he);
-	return hash_int ((int)f->kpage);
-}
-
-bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED)
-{
-	frame *a = hash_entry (a_, frame, he);
-	frame *b = hash_entry (b_, frame, he);
-
-	return a->kpage < b->kpage;
-}
 
 frame* frame_lookup (void *kpage)
 {
-	frame f;
-	struct hash_elem *e;
-
-	f.kpage = kpage;
-	e = hash_find((&frame_table), &f.he);
-
-	return e != NULL ? hash_entry (e, frame, he) : NULL ;
+	struct list_elem *e = list_head (&frame_table);
+	while ((e = list_next (e)) != list_end (&frame_table))
+	{
+		frame *f = list_entry(e, frame, list_elem);
+		if(f->kpage == kpage)
+		{
+			return f;
+		}
+	}
+	return NULL;
 }
 
 /*
@@ -51,7 +35,7 @@ frame* frame_lookup (void *kpage)
  */
 void ft_init(void)
 {
-	hash_init(&frame_table, &frame_hash, frame_less, NULL);
+	list_init(&frame_table);
 	lock_init(&ft_lock);
 }
 
@@ -62,7 +46,7 @@ void ft_insert_frame(frame *f)
 {
 	f->pinned = true;
 	lock_acquire(&ft_lock);
-	hash_insert(&frame_table, &(f->he));
+	list_push_back(&frame_table, &(f->list_elem));
 	lock_release(&ft_lock);
 	f->pinned = false;
 }
@@ -76,7 +60,7 @@ void ft_remove_frame(frame* frame)
 {
 	frame->pinned = true;
 	lock_acquire(&ft_lock);
-	hash_delete(&frame_table, &(frame->he));
+	list_remove(&(frame->list_elem));
 	lock_release(&ft_lock);
 	free(frame);
 }

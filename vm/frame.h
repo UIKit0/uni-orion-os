@@ -1,7 +1,7 @@
 #ifndef FRAME_H
 #define FRAME_H
 
-#include <hash.h>
+#include <list.h>
 #include "vm/common.h"
 
 struct frame
@@ -15,7 +15,7 @@ struct frame
 	//if frame is pinned, the contained page can not be evicted
 	bool  pinned;
 
-	struct hash_elem he; //needed for hash_table
+	struct list_elem list_elem; //needed for hash_table
 };
 
 //initializes the frame-table
