@@ -20,6 +20,9 @@ static const size_t SECTORS_PER_PAGE = PGSIZE / BLOCK_SECTOR_SIZE;
 void swap_init(void)
 {
     swap_block = block_get_role(BLOCK_SWAP);
+    if (swap_block == NULL) {
+        PANIC("No swap block found, could not initialize swaping!");
+    }
     block_sector_t swap_size = block_size(swap_block) * BLOCK_SECTOR_SIZE;
     swap_table = bitmap_create(swap_size / PGSIZE);
 }
@@ -32,7 +35,7 @@ void swap_in(void* page_address, int slot_number)
     // read the page into main memory
     size_t sector_id;
     for (sector_id = 0; sector_id < SECTORS_PER_PAGE; ++sector_id) {
-        block_read(swap_block, slot_sector + sector_id, page_address + PGSIZE * sector_id);
+        block_read(swap_block, slot_sector + sector_id, page_address + BLOCK_SECTOR_SIZE * sector_id);
     }
 
     // mark the swap slot as empty
@@ -42,7 +45,7 @@ void swap_in(void* page_address, int slot_number)
 int swap_out(void* page_address)
 {
     // find an empty swap slot
-    size_t slot_number = bitmap_scan_and_flip(swap_table, 0, 1, true);
+    size_t slot_number = bitmap_scan_and_flip(swap_table, 0, 1, false);
 
     if (slot_number == BITMAP_ERROR) {
         return -1;
@@ -53,7 +56,7 @@ int swap_out(void* page_address)
     // write the page to the swap space
     size_t sector_id;
     for (sector_id = 0; sector_id < SECTORS_PER_PAGE; ++sector_id) {
-        block_write(swap_block, slot_sector + sector_id, page_address + PGSIZE * sector_id);
+        block_write(swap_block, slot_sector + sector_id, page_address + BLOCK_SECTOR_SIZE * sector_id);
     }
 
     return slot_number;

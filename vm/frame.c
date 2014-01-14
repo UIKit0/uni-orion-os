@@ -160,7 +160,6 @@ bool ft_evict_frame(frame* frame)
 
 		struct supl_pte *pte = supl_pt_get_spte(process_current(), frame->upage);
 		pte->swap_slot_no = swap_out(frame->kpage);
-
 		frame->pinned = false;
 
 		if (pte->swap_slot_no < 0)

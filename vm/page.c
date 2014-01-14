@@ -26,7 +26,6 @@ void supl_pt_free(struct hash *h)
 		supl_pte *spte = hash_entry (hash_cur (&i), supl_pte, he);
 		free(spte);
 	}
-
 }
 
 static unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED)
