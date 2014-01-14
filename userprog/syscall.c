@@ -409,7 +409,9 @@ static void syscall_handler (struct intr_frame *f)
 		kill_current_process();		
 		return;
 	}
+  #ifdef VM
 	thread_current()->esp = f->esp;
+  #endif
 
   	int syscall_no = ((int*)f->esp)[0];	
 	switch (syscall_no) {

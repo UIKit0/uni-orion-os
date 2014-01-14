@@ -176,32 +176,31 @@ page_fault (struct intr_frame *f)
 #ifdef VM
   if(not_present)
   {
-	  void *esp = user ? f->esp : thread_current()->esp;
-	  int missing_pages_nr = is_stack_page_fault(fault_addr, esp);
-	  if( missing_pages_nr > 0 )
-	    {
-	        if ( !stack_growth(missing_pages_nr) )
-	        {
-	          printf("Stack cannot grow!\n");
-	          kill(f);
-	        }
-	  }
-	  else
+	  process_t *p = process_current();
+	  supl_pte *spte = supl_pt_get_spte(p, fault_addr);
+	  if(spte == NULL)
 	  {
-		  process_t *p = process_current();
-		  supl_pte *spte = supl_pt_get_spte(p, fault_addr);
-		  if(spte == NULL)
-		  {
-			  //invalid access
-			  //printf("Invalid access. Page not found!\n");
-			  INVALID_ACCESS();
-		  }
-		  else if(!load_page_lazy(p, spte))
-		  {
-			  //page not found
-			  //printf("Page could not be loaded");
-			  kill(f);
-		  }
+			void *esp = user ? f->esp : thread_current()->esp;
+			int missing_pages_nr = is_stack_page_fault(fault_addr, esp);
+			if( missing_pages_nr > 0 )
+			{
+				if ( !stack_growth(missing_pages_nr) )
+				{
+					printf("Stack cannot grow!\n");
+					kill(f);
+				}
+			}
+			else
+			{
+				//invalid access
+				//printf("Invalid access. Page not found!\n");
+				INVALID_ACCESS();
+			}
+	  }
+	  else if(!load_page_lazy(p, spte))
+	  {
+		  //printf("Page could not be loaded");
+		  kill(f);
 	  }
   }
   else {
@@ -214,17 +213,6 @@ page_fault (struct intr_frame *f)
   INVALID_ACCESS();
 #endif
 
-  return;
-  
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
 }
 
 /*
@@ -234,10 +222,12 @@ page_fault (struct intr_frame *f)
  */
 int is_stack_page_fault( void* fault_addr, void *esp )
 {
+#ifdef VM
   if ( ( esp - fault_addr == 32 ) || ( esp - fault_addr == 4 )
 		  || (fault_addr >= esp && fault_addr < thread_current()->last_stack_page) )
   {
       return (thread_current()->last_stack_page - esp) / PGSIZE + 1;
   }
+#endif
   return 0;
 }

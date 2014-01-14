@@ -710,7 +710,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		supl_pt_insert(&(process_current()->supl_pt), spte);
 
 #else
-		load_page(file, ofs, upage, read_bytes, zero_bytes, writable);
+		if(!load_page(file, ofs, upage, read_bytes, zero_bytes, writable, -1))
+			return false;
 #endif
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -742,21 +743,37 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 		return false;
 #endif
 
-	//advance to offset - might be redundant when VM is not implemented, but is safer
-	file_seek(file, ofs);
-
-	/* Load this page. */
-	if (file_read(file, kpage, read_bytes) != (int) read_bytes) {
 #ifdef VM
-		ft_free_frame(frame);
-#else
-		palloc_free_page(kpage);
+	if(swap_slot_no >= 0)
+	{
+		bool succes = true;
+		//succes = swap_in(kpage, swap_slot_no);
+		pagedir_set_present(thread_current()->pagedir, upage, true);
+		return succes;
+	}
 #endif
+
+	//advance to offset - might be redundant when VM is not implemented, but is safer
+	if(file != NULL)
+	{
+		file_seek(file, ofs);
+
+		/* Load this page. */
+		if (file_read(file, kpage, read_bytes) != (int) read_bytes)
+		{
+	#ifdef VM
+			ft_free_frame(frame);
+	#else
+			palloc_free_page(kpage);
+	#endif
+			return false;
+		}
 	}
 	memset(kpage + read_bytes, 0, zero_bytes);
 
 	/* Add the page to the process's address space. */
-	if (!install_page(upage, kpage, writable)) {
+	if (!install_page(upage, kpage, writable))
+	{
 #ifdef VM
 		ft_free_frame(frame);
 #else
@@ -777,63 +794,51 @@ load_page_lazy(process_t *p, supl_pte *spte)
 	bool writable = spte->writable;
 	off_t ofs = spte->ofs;
 	void *upage = spte->virt_page_addr;
+	int swap_slot_no = spte->swap_slot_no;
 
-	return load_page(file, ofs, upage, page_read_bytes, page_zero_bytes, writable);
+	return load_page(file, ofs, upage, page_read_bytes, page_zero_bytes, writable, swap_slot_no);
 }
 
 bool
 stack_growth(int nr_of_pages)
 {
+  #ifdef VM
 	//check if stack limit exceeded
 	if ((thread_current()->numberOfStackGrows + nr_of_pages) * PGSIZE >= MAX_STACK_SIZE)
 	{
 		return false;
 	}
+  #endif
 
-	void *upage, *kpage;
+	void *upage;
 
 	while (nr_of_pages)
 	{
-
+	  #ifdef VM
 		upage = thread_current()->last_stack_page - PGSIZE;
+	  #else
+		upage = PHYS_BASE - PGSIZE;
+      #endif
 
-	#ifdef VM
-		frame* frame = ft_alloc_frame(true, upage);
-		if(frame == NULL)
+		if(load_page(NULL, 0, upage, 0, PGSIZE, true, -1))
 		{
-			PANIC("Kernel panic - Insufficient memory");
+		  #ifdef VM
+			thread_current()->last_stack_page = upage;
+			thread_current()->numberOfStackGrows++;
+
+			//Saves the page info into supplemental table
+			supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
+			spte->virt_page_no = pg_no(upage);
+			spte->virt_page_addr = upage;
+			spte->swap_slot_no = -1;
+			supl_pt_insert(&(process_current()->supl_pt), spte);
+		  #endif
 		}
-		kpage = frame->kpage;
-	#else
-		kpage = palloc_get_page(PAL_USER | PAL_ZERO);
-	#endif
-		if (kpage != NULL )
+		else
 		{
-			if (install_page(upage, kpage, true))
-			{
-				thread_current()->last_stack_page = upage;
-				thread_current()->numberOfStackGrows++;
-
-		        #ifdef VM
-				//Saves the page info into supplemental table
-			        supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
-			        spte->virt_page_no = pg_no(upage);
-			        spte->virt_page_addr = upage;
-			        supl_pt_insert(&(process_current()->supl_pt), spte);
-		       #endif
-
-			}
-			else
-			{
-		#ifdef VM
-				ft_free_frame(frame);
-		#else
-				palloc_free_page(kpage);
-		#endif
-				return false;
-			}
-			--nr_of_pages;
+			return false;
 		}
+		--nr_of_pages;
 	}
 
 	return true;
