@@ -156,6 +156,31 @@ pagedir_clear_page (uint32_t *pd, void *upage)
     }
 }
 
+/* Marks user virtual page UPAGE "present" in page
+   directory PD. Other
+   bits in the page table entry are preserved.
+   UPAGE need to be mapped. */
+void
+pagedir_set_present (uint32_t *pd, void *upage, bool present)
+{
+   if(present)
+   {
+		uint32_t *pte;
+
+		ASSERT(pg_ofs(upage) == 0);
+		ASSERT(is_user_vaddr(upage));
+
+		pte = lookup_page(pd, upage, false);
+		if (pte != NULL) {
+			*pte |= PTE_P;
+			invalidate_pagedir(pd);
+		}
+   }
+   else
+	   pagedir_clear_page(pd, upage);
+
+}
+
 /* Returns true if the PTE for virtual page VPAGE in PD is dirty,
    that is, if the page has been modified since the PTE was
    installed.

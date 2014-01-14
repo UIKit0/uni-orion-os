@@ -14,6 +14,7 @@ struct supl_pte {						// an entry (element) in the supplemental page table
 	size_t 		page_read_bytes;		// number of bytes to read from the file and store in the page
 	size_t 		page_zero_bytes; 		// number of bytes to zero in the page
 	bool		writable;				// indicate if the page is writable or not
+	int 		swap_slot_no;			// if >=0, the slot_no where the page is in swap, otherwise page is not in swap
 	struct hash_elem he;				// element to insert the structure in a hash list
 };
 

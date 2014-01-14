@@ -490,7 +490,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
 static bool load_page(struct file *file, off_t ofs, uint8_t *upage,
-		uint32_t read_bytes, uint32_t zero_bytes, bool writable);
+		uint32_t read_bytes, uint32_t zero_bytes, bool writable, int swap_slot_no UNUSED);
 //static bool load_page_lazy(uint8_t *upage);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
@@ -705,6 +705,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		spte->page_zero_bytes = page_zero_bytes;
 		spte->virt_page_addr = upage;
 		spte->writable = writable;
+		spte->swap_slot_no = -1;
 
 		supl_pt_insert(&(process_current()->supl_pt), spte);
 
@@ -722,7 +723,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
 static bool
 load_page(struct file *file, off_t ofs, uint8_t *upage,
-		uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
+		uint32_t read_bytes, uint32_t zero_bytes, bool writable,
+		int swap_slot_no UNUSED)
+{
 	uint8_t *kpage;
 
 #ifdef VM
