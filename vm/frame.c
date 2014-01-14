@@ -1,10 +1,14 @@
+#include "vm/frame.h"
+
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
-#include "vm/frame.h"
 #include "userprog/pagedir.h"
+#include "userprog/process.h"
+#include "vm/page.h"
+#include "vm/swap.h"
 
 #include <string.h>
 
@@ -14,9 +18,7 @@ static struct list frame_table;
 /* A lock for frame_table synchronized access*/
 struct lock ft_lock;
 
-frame* frame_lookup (void *kpage);
-
-frame* frame_lookup (void *kpage)
+static frame* frame_lookup (void *kpage)
 {
 	struct list_elem *e = list_head (&frame_table);
 	while ((e = list_next (e)) != list_end (&frame_table))
@@ -30,7 +32,7 @@ frame* frame_lookup (void *kpage)
 	return NULL;
 }
 
-/*
+/**
  * Initializes the frame table
  */
 void ft_init(void)
@@ -65,13 +67,15 @@ void ft_remove_frame(frame* frame)
 	free(frame);
 }
 
-/*allocates a page within a frame
-  and returns the allocated frame
-  if there is an unused frame.
-  Otherwise, it tries to evict a
-  frame and return it. If no frame
-  is unused and no frame can be evicted
-  it returns NULL. */
+/**
+ * Allocates a page within a frame
+ * and returns the allocated frame
+ * if there is an unused frame.
+ * Otherwise, it tries to evict a
+ * frame and return it. If no frame
+ * is unused and no frame can be evicted
+ * it returns NULL. 
+ */
 frame* 	ft_alloc_frame(bool zero_page, void *page_u_addr)
 {
 	enum palloc_flags flags = PAL_USER | (zero_page ? PAL_ZERO : 0);
@@ -115,22 +119,37 @@ void ft_free_frame(frame *f)
 	ft_remove_frame(f);
 }
 
-/*
-  Finds the least recently used frame
-*/
-frame* ft_get_lru_frame(void)
+/**
+ * Finds the least recently used frame
+ */
+frame *ft_get_lru_frame(void)
 {
-	//TODO: implement clock-algorithm or second-chance
-	return NULL;
+	// First chance
+	struct list_elem *e = list_head (&frame_table);
+	while ((e = list_next (e)) != list_end (&frame_table))
+	{
+		frame *f = list_entry(e, frame, list_elem);
+		if (!pagedir_is_accessed(thread_current()->pagedir, f->kpage)) {
+			return f;
+		} else {
+			pagedir_set_accessed(thread_current()->pagedir, f->kpage, false);
+		}
+		return f;
+	}
+
+	// Second chance
+	e = list_head (&frame_table);
+	return list_entry(e, frame, list_elem);
 }
 
-/* Tries to evict the frame given. If the
+/**
+ * Tries to evict the frame given. If the
  * page within the frame was modified, the page
  * is written to swap. If dealloc is requested,
  * the memory is freed, otherwise, the memory is
  * kept for another page to be used. Returns true
  * if eviction was successful, false otherwise.
-*/
+ */
 bool ft_evict_frame(frame* frame)
 {
 	struct thread *t = thread_current();
@@ -138,12 +157,16 @@ bool ft_evict_frame(frame* frame)
 	if( pagedir_is_dirty(t->pagedir, frame->upage) )
 	{
 		frame->pinned = true;
-		//TODO:swap out the page
-		//supl_pte = get_supl_pte(current_process, frame.upage);
-		//supl_pte.slot_no = swap_out(frame.kpage)
+
+		struct supl_pte *pte = supl_pt_get_spte(process_current(), frame->upage);
+		pte->swap_slot_no = swap_out(frame->kpage);
+
 		frame->pinned = false;
-		//if(supl_pte.slot_no < 0)
-			//	return false
+
+		if (pte->swap_slot_no < 0)
+		{
+			return false;
+		}
 	}
 
 	pagedir_clear_page(t->pagedir, frame->upage);
@@ -151,7 +174,7 @@ bool ft_evict_frame(frame* frame)
 	return true;
 }
 
-/*
+/**
  * Pins the frame, namely disqualifies it from
  * being evicted by the LRU algorithm
  */
@@ -162,7 +185,7 @@ void ft_pin_frame(const void *uaddr)
 	f->pinned = false;
 }
 
-/*
+/**
  * Unpins the frame, making it available to
  * be evicted by the LRU algorithm
  */
