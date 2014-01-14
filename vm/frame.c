@@ -76,7 +76,7 @@ void ft_remove_frame(frame* frame)
  * is unused and no frame can be evicted
  * it returns NULL. 
  */
-frame* 	ft_alloc_frame(bool zero_page, void *page_u_addr)
+frame* ft_alloc_frame(bool zero_page, void *page_u_addr)
 {
 	enum palloc_flags flags = PAL_USER | (zero_page ? PAL_ZERO : 0);
 
@@ -129,7 +129,7 @@ frame *ft_get_lru_frame(void)
 	while ((e = list_next (e)) != list_end (&frame_table))
 	{
 		frame *f = list_entry(e, frame, list_elem);
-		if (!pagedir_is_accessed(thread_current()->pagedir, f->upage)) {
+		if (!pagedir_is_accessed(thread_current()->pagedir, f->upage) && !f->pinned) {
 			return f;
 		} else {
 			pagedir_set_accessed(thread_current()->pagedir, f->upage, false);
@@ -137,7 +137,11 @@ frame *ft_get_lru_frame(void)
 	}
 
 	// Second chance
-	e = list_head (&frame_table);
+	e = list_next(list_head(&frame_table));
+	while (list_entry(e, frame, list_elem)->pinned) {
+		e = list_next(e);
+	}
+
 	return list_entry(e, frame, list_elem);
 }
 

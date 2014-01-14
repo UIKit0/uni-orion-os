@@ -769,6 +769,7 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 			return false;
 		}
 	}
+
 	memset(kpage + read_bytes, 0, zero_bytes);
 #ifdef VM
 	/* Set the page present if it is in the process's adress space*/
