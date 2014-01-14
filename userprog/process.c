@@ -770,7 +770,15 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 		}
 	}
 	memset(kpage + read_bytes, 0, zero_bytes);
-
+#ifdef VM
+	/* Set the page present if it is in the process's adress space*/
+	struct thread *crt_thread = thread_current();
+	if(pagedir_get_page(crt_thread->pagedir, upage) != NULL)
+	{
+		pagedir_set_present(crt_thread->pagedir, upage, true);
+		return true;
+	}
+#endif
 	/* Add the page to the process's address space. */
 	if (!install_page(upage, kpage, writable))
 	{
