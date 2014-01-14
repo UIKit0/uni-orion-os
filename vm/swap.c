@@ -39,7 +39,7 @@ void swap_in(void* page_address, int slot_number)
     bitmap_reset(swap_table, slot_number);
 }
 
-size_t swap_out(void* page_address)
+int swap_out(void* page_address)
 {
     // find an empty swap slot
     size_t slot_number = bitmap_scan_and_flip(swap_table, 0, 1, true);

@@ -18,6 +18,6 @@ void swap_in(void* page_address, int slot_number);
 /**
  * Swaps a page out to swap space.
  */
-size_t swap_out(void* page_address);
+int swap_out(void* page_address);
 
 #endif // VM_SWAP_H
