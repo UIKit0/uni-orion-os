@@ -22,6 +22,7 @@
 #include "threads/malloc.h"
 #include "vm/frame.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -746,10 +747,9 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 #ifdef VM
 	if(swap_slot_no >= 0)
 	{
-		bool succes = true;
-		//succes = swap_in(kpage, swap_slot_no);
+		swap_in(kpage, swap_slot_no);
 		pagedir_set_present(thread_current()->pagedir, upage, true);
-		return succes;
+		return true;
 	}
 #endif
 

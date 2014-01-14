@@ -101,7 +101,7 @@ frame* 	ft_alloc_frame(bool zero_page, void *page_u_addr)
 
 			lru_f->upage = page_u_addr;
 			if (zero_page)
-				memset(lru_f->kpage, 0, 1);
+				memset(lru_f->kpage, 0, PGSIZE );
 
 			lru_f->pinned = false;
 		}
@@ -129,12 +129,11 @@ frame *ft_get_lru_frame(void)
 	while ((e = list_next (e)) != list_end (&frame_table))
 	{
 		frame *f = list_entry(e, frame, list_elem);
-		if (!pagedir_is_accessed(thread_current()->pagedir, f->kpage)) {
+		if (!pagedir_is_accessed(thread_current()->pagedir, f->upage)) {
 			return f;
 		} else {
-			pagedir_set_accessed(thread_current()->pagedir, f->kpage, false);
+			pagedir_set_accessed(thread_current()->pagedir, f->upage, false);
 		}
-		return f;
 	}
 
 	// Second chance
