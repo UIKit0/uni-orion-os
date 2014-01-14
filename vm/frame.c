@@ -159,11 +159,11 @@ bool ft_evict_frame(frame* frame)
 
 	if( pagedir_is_dirty(t->pagedir, frame->upage) )
 	{
-		frame->pinned = true;
-
+		//frame->pinned = true;
+		//printf("[SWAP] swaping out page %p to slot %d\n", frame->upage);
 		struct supl_pte *pte = supl_pt_get_spte(process_current(), frame->upage);
 		pte->swap_slot_no = swap_out(frame->kpage);
-		frame->pinned = false;
+		//frame->pinned = false;
 
 		if (pte->swap_slot_no < 0)
 		{

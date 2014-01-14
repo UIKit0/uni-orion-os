@@ -747,7 +747,9 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 #ifdef VM
 	if(swap_slot_no >= 0)
 	{
+		//printf("[SWAP] swaping in user page %p \n", upage);
 		swap_in(kpage, swap_slot_no);
+		pagedir_set_page(thread_current()->pagedir, upage, kpage, writable);
 		pagedir_set_present(thread_current()->pagedir, upage, true);
 		return true;
 	}
@@ -776,6 +778,7 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 	struct thread *crt_thread = thread_current();
 	if(pagedir_get_page(crt_thread->pagedir, upage) != NULL)
 	{
+		pagedir_set_page(crt_thread->pagedir, upage, kpage, writable);
 		pagedir_set_present(crt_thread->pagedir, upage, true);
 		return true;
 	}
@@ -804,6 +807,7 @@ load_page_lazy(process_t *p, supl_pte *spte)
 	off_t ofs = spte->ofs;
 	void *upage = spte->virt_page_addr;
 	int swap_slot_no = spte->swap_slot_no;
+	spte->swap_slot_no = -1;
 
 	return load_page(file, ofs, upage, page_read_bytes, page_zero_bytes, writable, swap_slot_no);
 }
@@ -840,6 +844,7 @@ stack_growth(int nr_of_pages)
 			spte->virt_page_no = pg_no(upage);
 			spte->virt_page_addr = upage;
 			spte->swap_slot_no = -1;
+			spte->writable = true;
 			supl_pt_insert(&(process_current()->supl_pt), spte);
 		  #endif
 		}
