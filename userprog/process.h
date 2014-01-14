@@ -13,7 +13,7 @@
 
 
 #define MAX_OPEN_FILES_PER_PROCESS 16
-#define MAX_STACK_SIZE (1 * 256 * 1024)
+#define MAX_STACK_SIZE (8 * 1024 * 1024)
 
 struct process_t {
 	/* process id of this process */
