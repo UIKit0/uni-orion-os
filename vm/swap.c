@@ -50,9 +50,6 @@ int swap_out(void* page_address)
 
     block_sector_t slot_sector = slot_number * SECTORS_PER_PAGE;
 
-    // mark the swap slot as used
-    bitmap_set(swap_table, slot_number, true);
-
     // write the page to the swap space
     size_t sector_id;
     for (sector_id = 0; sector_id < SECTORS_PER_PAGE; ++sector_id) {
