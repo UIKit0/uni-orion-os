@@ -23,12 +23,16 @@ void swap_init(void)
     if (swap_block == NULL) {
         PANIC("No swap block found, could not initialize swaping!");
     }
-    block_sector_t swap_size = block_size(swap_block) * BLOCK_SECTOR_SIZE;
-    swap_table = bitmap_create(swap_size / PGSIZE);
+    block_sector_t swap_size = block_size(swap_block);
+    size_t swap_slots = swap_size * BLOCK_SECTOR_SIZE / PGSIZE;
+    swap_table = bitmap_create(swap_slots);
+
+    printf("[SWAP] found swap block with %d sectors. Initializing swap with %d slots\n", swap_size, swap_slots);
 }
 
 void swap_in(void* page_address, int slot_number)
 {
+    printf("[SWAP] swaping in page %p from slot %d\n", page_address, slot_number);
     // calculate the sector where the page starts
     block_sector_t slot_sector = slot_number * SECTORS_PER_PAGE;
 
@@ -52,6 +56,8 @@ int swap_out(void* page_address)
     }
 
     block_sector_t slot_sector = slot_number * SECTORS_PER_PAGE;
+
+    printf("[SWAP] swaping out page %p to slot %d\n", page_address, slot_number);
 
     // write the page to the swap space
     size_t sector_id;
