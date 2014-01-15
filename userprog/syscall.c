@@ -8,6 +8,10 @@
 #include "filesys/file.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#ifdef VM
+	#include "vm/frame.h"
+	#include "vm/page.h"
+#endif
 
 #define READ	1
 #define WRITE 	2
@@ -444,12 +448,14 @@ void syscall_exec(struct intr_frame *f) {
 	f->eax = process_execute(buf);
 }
 
+static supl_pte* gPages[1024];
+
 static void syscall_mmap(struct intr_frame *f) {
 	f->eax = -1;
 	process_t *p = process_current();
 	
 	int fd = (int) ((int*)f->esp)[1];
-	void *addr = (void *) ((int*)f->esp)[2];
+	char *addr = (void *) ((int*)f->esp)[2];
 
 	struct file* fl = fd_get_file(fd);
 
@@ -457,20 +463,48 @@ static void syscall_mmap(struct intr_frame *f) {
 		return;
 	}
 
+	if((int)addr % PGSIZE != 0 && (int)addr > 0) {
+		return;
+	}
+
+	filesys_lock();
+	int filesize = file_length(fl);
+	filesys_unlock();
+	
+	int zeroOrOne = filesize % PGSIZE ? 1 : 0;
+	int pageNumber = filesize / PGSIZE + zeroOrOne;
+	int pageIndex = 0;
+
+	while(pageIndex < pageNumber) {
+		if(supl_pt_get_spte(p, addr) != NULL) {
+			//rollback & break
+			while(pageIndex >= 0) {
+				supl_pt_remove(&(p->supl_pt), gPages[pageNumber]);
+				--pageIndex;
+			}			
+			return;
+		}
+		supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
+		spte->virt_page_no = pg_no(addr);
+		spte->virt_page_addr = addr;
+		spte->swap_slot_no = -2;
+		spte->writable = true;
+		spte->page_read_bytes = 0; //this page will be always written to swap
+		supl_pt_insert(&(p->supl_pt), spte);
+		gPages[pageNumber] = spte;
+		addr += PGSIZE;
+		pageIndex++;
+	}
+
 	mapped_file *mf = (mapped_file *)malloc(sizeof(mapped_file));
 	mf->id = mfd_create();
 	mf->user_provided_location = addr;
 	mf->fd = fd;
+	mf->file_size = filesize;
 
-
-	
-	filesys_lock();
-	mf->file_size = file_length(fl);
-	filesys_unlock();
 
 	list_push_back(&p->mmap_list, &(mf->lst));
-	//todo: setup pages or something.
-
+	f->eax = mf->id;
 }
 
 mapped_file *get_mapped_file_from_page_pointer(void *pagePointer) {	
