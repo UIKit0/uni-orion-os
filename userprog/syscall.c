@@ -483,7 +483,7 @@ static void syscall_mmap(struct intr_frame *f) {
 		supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
 		spte->virt_page_no = pg_no(addr);
 		spte->virt_page_addr = addr;
-		spte->swap_slot_no = -1;
+		spte->swap_slot_no = -2;
 		spte->writable = true;
 		spte->page_read_bytes = 0; //this page will be always written to swap
 		gPages[pageIndex] = spte;
