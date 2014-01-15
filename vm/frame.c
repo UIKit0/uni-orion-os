@@ -124,10 +124,21 @@ void ft_free_frame(frame *f)
  */
 frame *ft_get_lru_frame(void)
 {
-	// First chance
-	struct list_elem *e = list_head (&frame_table);
-	while ((e = list_next (e)) != list_end (&frame_table))
+	static struct list_elem *e = NULL;
+
+	if (e == NULL) {
+		e = list_head(&frame_table);
+	}
+
+	while (true)
 	{
+		e = list_next(e);
+
+		// restart from the beginning
+		if (e == list_end(&frame_table)) {
+			e = list_next(list_head(&frame_table));
+		}
+
 		frame *f = list_entry(e, frame, list_elem);
 		if (!pagedir_is_accessed(thread_current()->pagedir, f->upage) && !f->pinned) {
 			return f;
@@ -135,14 +146,6 @@ frame *ft_get_lru_frame(void)
 			pagedir_set_accessed(thread_current()->pagedir, f->upage, false);
 		}
 	}
-
-	// Second chance
-	e = list_next(list_head(&frame_table));
-	while (list_entry(e, frame, list_elem)->pinned) {
-		e = list_next(e);
-	}
-
-	return list_entry(e, frame, list_elem);
 }
 
 /**
