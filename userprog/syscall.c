@@ -445,15 +445,50 @@ void syscall_exec(struct intr_frame *f) {
 }
 
 static void syscall_mmap(struct intr_frame *f) {
-	f->eax = 0;
+	f->eax = -1;
 	process_t *p = process_current();
+	
+	int fd = (int) ((int*)f->esp)[1];
+	void *addr = (void *) ((int*)f->esp)[2];
+
+	struct file* fl = fd_get_file(fd);
+
+	if(fl == NULL) {
+		return;
+	}
+
+	mapped_file *mf = (mapped_file *)malloc(sizeof(mapped_file));
+	mf->id = mfd_create();
+	mf->user_provided_location = addr;
+	mf->fd = fd;
+
 
 	
+	filesys_lock();
+	mf->file_size = file_length(fl);
+	filesys_unlock();
 
+	list_push_back(&p->mmap_list, &(mf->lst));
+	//todo: setup pages or something.
 
 }
 
 static void syscall_munmap(struct intr_frame *f) {
+	f->eax = -1;
+	int mfd = (int) ((int*)f->esp)[1];
+	
+	mapped_file* fl = mfd_get_file(mfd);
+	if(fl == NULL) {
+		return;
+	}
+
+	struct file* cfile = fd_get_file(fl->fd);
+
+	filesys_lock();
+	file_write(cfile, fl->user_provided_location, fl->file_size);
+	filesys_unlock();
+	mfd_remove_file(mfd);
+
 	f->eax = 0;
 }
 
