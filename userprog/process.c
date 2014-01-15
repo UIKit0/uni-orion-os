@@ -748,7 +748,9 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 	if(swap_slot_no >= 0)
 	{
 		//printf("[SWAP] swaping in user page %p \n", upage);
+		frame->pinned = true;
 		swap_in(kpage, swap_slot_no);
+		frame->pinned = false;
 		pagedir_set_page(thread_current()->pagedir, upage, kpage, writable);
 		pagedir_set_present(thread_current()->pagedir, upage, true);
 		return true;
@@ -761,6 +763,9 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 		file_seek(file, ofs);
 
 		/* Load this page. */
+#ifdef VM
+		frame->pinned = true;
+#endif
 		if (file_read(file, kpage, read_bytes) != (int) read_bytes)
 		{
 	#ifdef VM
@@ -773,6 +778,10 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 	}
 
 	memset(kpage + read_bytes, 0, zero_bytes);
+#ifdef VM
+		frame->pinned = false;
+#endif
+
 #ifdef VM
 	/* Set the page present if it is in the process's adress space*/
 	struct thread *crt_thread = thread_current();
@@ -845,6 +854,8 @@ stack_growth(int nr_of_pages)
 			spte->virt_page_addr = upage;
 			spte->swap_slot_no = -1;
 			spte->writable = true;
+			spte->page_read_bytes = 0; //this page will be always written to swap
+
 			supl_pt_insert(&(process_current()->supl_pt), spte);
 		  #endif
 		}

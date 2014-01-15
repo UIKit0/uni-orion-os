@@ -32,7 +32,7 @@ void swap_init(void)
 
 void swap_in(void* page_address, int slot_number)
 {
-    //printf("[SWAP] swaping in page %p from slot %d\n", page_address, slot_number);
+    printf("[SWAP] swaping in page %p from slot %d\n", page_address, slot_number);
     // calculate the sector where the page starts
     block_sector_t slot_sector = slot_number * SECTORS_PER_PAGE;
 
@@ -57,7 +57,7 @@ int swap_out(void* page_address)
 
     block_sector_t slot_sector = slot_number * SECTORS_PER_PAGE;
 
-    //printf("[SWAP] swapped out page %p to slot %d\n", page_address, slot_number);
+    printf("[SWAP] swapped out page %p to slot %d\n", page_address, slot_number);
 
     // write the page to the swap space
     size_t sector_id;
