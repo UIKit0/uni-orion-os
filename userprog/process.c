@@ -753,6 +753,8 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 		frame->pinned = false;
 		pagedir_set_page(thread_current()->pagedir, upage, kpage, writable);
 		pagedir_set_present(thread_current()->pagedir, upage, true);
+		//if loaded from swap, surely it's not in the file => it's dirty
+		pagedir_set_dirty(thread_current()->pagedir, upage, true);
 		return true;
 	}
 #endif
