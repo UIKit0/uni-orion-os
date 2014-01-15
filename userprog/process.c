@@ -24,6 +24,7 @@
 #include "vm/frame.h"
 #include "vm/page.h"
 #include "vm/swap.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -44,6 +45,10 @@ pid_t allocate_pid (void);
 void init_process( process_t* proc );
 void init_master_process( process_t* proc );
 void free_fd_list(void);
+static bool
+load_page(struct file *file, off_t ofs, uint8_t *upage,
+    uint32_t read_bytes, uint32_t zero_bytes, bool writable,
+    int swap_slot_no UNUSED);
 
 unsigned process_hash_func (const struct hash_elem *e, void *aux UNUSED) {
   process_t *p = hash_entry(e, process_t, h_elem);
@@ -494,8 +499,6 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
-static bool load_page(struct file *file, off_t ofs, uint8_t *upage,
-		uint32_t read_bytes, uint32_t zero_bytes, bool writable, int swap_slot_no UNUSED);
 //static bool load_page_lazy(uint8_t *upage);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
@@ -727,6 +730,44 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+bool load_page_mm(int fd, int ofs, uint8_t *upage) {
+  frame* frame = ft_alloc_frame(true, upage);  
+  if(frame == NULL) {
+    PANIC("Kernel panic - Insufficient memory");
+  }
+
+  struct thread *crt_thread = thread_current();
+
+
+  pagedir_set_page(crt_thread->pagedir, upage, frame->kpage, true);
+  pagedir_set_present(crt_thread->pagedir, upage, true);
+  pagedir_set_dirty(crt_thread->pagedir, upage, true);
+
+
+  struct file* fl = fd_get_file(fd);
+  filesys_lock();
+  file_seek(fl, ofs);
+  int filesize = file_length(fl);
+  int bytesToRead = filesize < PGSIZE + ofs ? filesize - ofs : PGSIZE;
+  file_read(fl, frame->kpage, bytesToRead);
+  filesys_unlock(); 
+
+  //printf("bytesToRead: %d\nupage: %p\nkpage: %p\n", bytesToRead, upage, frame->kpage);
+
+  return true;  
+}
+
+bool save_page_mm(int fd, int ofs, uint8_t *kpage) {
+  struct file* fl = fd_get_file(fd);
+  filesys_lock();
+  file_seek(fl, ofs);
+  int filesize = file_length(fl);
+  int bytesToWrite = filesize < PGSIZE + ofs ? filesize - ofs : PGSIZE;
+  file_write(fl, kpage, bytesToWrite);
+  filesys_unlock();
+  return true;
+}
+
 static bool
 load_page(struct file *file, off_t ofs, uint8_t *upage,
 		uint32_t read_bytes, uint32_t zero_bytes, bool writable,
@@ -793,7 +834,6 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 	struct thread *crt_thread = thread_current();
 	if(pagedir_get_page(crt_thread->pagedir, upage) != NULL)
 	{
-		pagedir_set_page(crt_thread->pagedir, upage, kpage, writable);
 		pagedir_set_present(crt_thread->pagedir, upage, true);
 		return true;
 	}

@@ -152,7 +152,7 @@ static bool fd_is_valid(int fd, int direction) {
 /*
  *	Returns the file structured managed by this file descriptor.
  */
-static struct file *fd_get_file(int fd) {
+struct file *fd_get_file(int fd) {
 	struct list* file_descriptors = &process_current()->owned_file_descriptors;
 	struct list_elem *e;
 	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
@@ -457,6 +457,7 @@ static void syscall_mmap(struct intr_frame *f) {
 	
 	int fd = (int) ((int*)f->esp)[1];
 	char *addr = (void *) ((int*)f->esp)[2];
+	char *addrStart = addr;
 
 	struct file* fl = fd_get_file(fd);
 
@@ -476,37 +477,39 @@ static void syscall_mmap(struct intr_frame *f) {
 	int pageNumber = filesize / PGSIZE + zeroOrOne;
 	int pageIndex = 0;
 
+	struct thread *th = thread_current();
+
 	while(pageIndex < pageNumber) {
 		supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
 		spte->virt_page_no = pg_no(addr);
 		spte->virt_page_addr = addr;
-		spte->swap_slot_no = -2;
+		spte->swap_slot_no = -1;
 		spte->writable = true;
 		spte->page_read_bytes = 0; //this page will be always written to swap
-		supl_pt_insert(&(p->supl_pt), spte);
 		gPages[pageIndex] = spte;
-		if(supl_pt_get_spte(p, addr) != NULL) {			
+		if(supl_pt_get_spte(p, addr) != NULL) {
+			--pageIndex;
 			//rollback & break
 			while(pageIndex >= 0) {
 				supl_pt_remove(&(p->supl_pt), gPages[pageIndex]);
 				--pageIndex;
-			}		
-			kill_current_process();	
+			}			
 			return;			
 		}
-		pagedir_set_present(thread_current()->pagedir, addr, false);
+		supl_pt_insert(&(p->supl_pt), spte);		
+		pagedir_set_present(th->pagedir, addr, false);
 		addr += PGSIZE;
 		pageIndex++;
 	}
 
 	mapped_file *mf = (mapped_file *)malloc(sizeof(mapped_file));
 	mf->id = mfd_create();
-	mf->user_provided_location = addr;
+	mf->user_provided_location = addrStart;
 	mf->fd = fd;
-	mf->file_size = filesize;
-
+	mf->file_size = filesize;	
 
 	list_push_back(&p->mmap_list, &(mf->lst));
+	get_mapped_file_from_page_pointer(addrStart);
 	f->eax = mf->id;
 }
 

@@ -72,6 +72,8 @@ process_t * find_process(pid_t pid);
 
 #ifdef VM
   bool load_page_lazy(process_t *p, supl_pte *supl_pte);
+  bool load_page_mm(int fd, int ofs, uint8_t *upage);
+  bool save_page_mm(int fd, int ofs, uint8_t *kpage);
   bool stack_growth(int nr_of_pages);
 #endif
 

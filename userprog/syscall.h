@@ -5,8 +5,10 @@
 #define STDOUT 	1
 
 struct mapped_file;
+struct file;
 
 
+struct file *fd_get_file(int fd);
 void syscall_init (void);
 struct mapped_file *get_mapped_file_from_page_pointer(void *pagePointer);
 void munmap_all(void);

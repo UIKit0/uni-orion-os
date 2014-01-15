@@ -7,7 +7,7 @@
 #include "threads/vaddr.h"
 #include "vm/page.h"
 #include "userprog/process.h"
-
+#include "userprog/syscall.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -178,7 +178,10 @@ page_fault (struct intr_frame *f)
   {
 	  process_t *p = process_current();
 	  supl_pte *spte = supl_pt_get_spte(p, fault_addr);
-	  if(spte == NULL)
+
+    //struct mapped_file *get_mapped_file_from_page_pointer(void *pagePointer);
+
+    if(spte == NULL)
 	  {
 			void *esp = user ? f->esp : thread_current()->esp;
 			int missing_pages_nr = is_stack_page_fault(fault_addr, esp);
@@ -197,6 +200,13 @@ page_fault (struct intr_frame *f)
 				INVALID_ACCESS();
 			}
 	  }
+    else if(spte->swap_slot_no == -2) {
+      mapped_file *mfile = get_mapped_file_from_page_pointer(spte->virt_page_addr);
+
+      if(mfile) {
+        load_page_mm(mfile->fd, spte->virt_page_addr - mfile->user_provided_location, spte->virt_page_addr);
+      }
+    }
 	  else if(!load_page_lazy(p, spte))
 	  {
    	  //printf("Page could not be loaded");

@@ -7,8 +7,10 @@
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #include "vm/page.h"
 #include "vm/swap.h"
+
 
 #include <string.h>
 
@@ -161,7 +163,16 @@ bool ft_evict_frame(frame* frame)
 	struct thread *t = thread_current();
 
 	struct supl_pte *pte = supl_pt_get_spte(process_current(), frame->upage);
-	if( pagedir_is_dirty(t->pagedir, frame->upage) || pte->page_read_bytes == 0 )
+
+
+	if(pte->swap_slot_no == -2) {
+		mapped_file *mfile = get_mapped_file_from_page_pointer(pte->virt_page_addr);
+		if(mfile != NULL) {
+			save_page_mm(mfile->fd, pte->virt_page_addr - mfile->user_provided_location, frame->kpage);
+			pte->swap_slot_no = -2;
+		}
+	}
+	else if( pagedir_is_dirty(t->pagedir, frame->upage) || pte->page_read_bytes == 0 )
 	{
 		//frame->pinned = true;
 		pte->swap_slot_no = swap_out(frame->kpage);
