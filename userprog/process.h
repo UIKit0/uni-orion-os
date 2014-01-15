@@ -38,8 +38,19 @@ struct process_t {
 #ifdef VM
 	//supplemental page table - needed for lazy loading
 	struct hash supl_pt;
+	struct list mmap_list;
 #endif
 };
+
+typedef int mapid_t;
+struct mapped_file {
+	mapid_t id;
+	int fd;
+	void *user_provided_location;
+	size_t file_size;
+	struct list_elem lst;
+};
+typedef struct mapped_file mapped_file;
 
 struct fd_list_link {
 	struct list_elem l_elem;

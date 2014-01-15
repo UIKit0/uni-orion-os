@@ -27,6 +27,8 @@ static void syscall_write(struct intr_frame *f);
 static void syscall_seek(struct intr_frame *f);
 static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
+static void syscall_mmap(struct intr_frame *f);
+static void syscall_munmap(struct intr_frame *f);
 
 /* Initializes the syscall handler. */
 void syscall_init (void) {
@@ -153,6 +155,45 @@ static struct file *fd_get_file(int fd) {
 		}
 	}
 	return NULL;
+}
+
+static mapped_file *mfd_get_file(int mfd) {
+	struct list* file_descriptors = &process_current()->mmap_list;
+	struct list_elem *e;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+		mapped_file *link = list_entry(e, mapped_file, lst);
+		if (link->id == mfd) {
+			return link;
+		}
+	}
+	return NULL;
+}
+
+static void mfd_remove_file(int mfd) {
+	struct list* file_descriptors = &process_current()->mmap_list;
+	struct list_elem *e;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); ){
+		mapped_file *link = list_entry(e, mapped_file, lst);
+		e = list_next(e);		
+		if (link->id == mfd) {
+			list_remove(&link->lst);
+			free(link);			
+			return;
+		}
+	}
+}
+
+static mapid_t mfd_create(void) {
+	struct list* file_descriptors = &process_current()->mmap_list;
+	struct list_elem *e;
+	mapid_t max_fd = 2;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+		int fd = list_entry(e, mapped_file, lst)->id;
+		if (fd > max_fd) {
+			max_fd = fd;
+		}
+	}
+	return max_fd + 1;
 }
 
 /*
@@ -403,6 +444,19 @@ void syscall_exec(struct intr_frame *f) {
 	f->eax = process_execute(buf);
 }
 
+static void syscall_mmap(struct intr_frame *f) {
+	f->eax = 0;
+	process_t *p = process_current();
+
+	
+
+
+}
+
+static void syscall_munmap(struct intr_frame *f) {
+	f->eax = 0;
+}
+
 static void syscall_handler (struct intr_frame *f) 
 {
 	if(!is_valid_user_address_range_read(f->esp, 4)) {
@@ -453,6 +507,12 @@ static void syscall_handler (struct intr_frame *f)
 			break;
 		case SYS_CLOSE:
 			syscall_close(f);
+			break;
+		case SYS_MMAP:
+			syscall_mmap(f);
+			break;
+		case SYS_MUNMAP:
+			syscall_munmap(f);
 			break;
 		default:
 			thread_exit();  
