@@ -490,7 +490,7 @@ void munmap_all(void) {
 	process_t *cp = process_current();
 	struct list* file_descriptors = &cp->mmap_list;
 	struct list_elem *e, *next_e;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)) {
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors);) {
 		mapped_file *mmentry = list_entry(e, mapped_file, lst);
 		next_e = list_next(e);
 		mummap_wrapped(mmentry);
