@@ -20,6 +20,7 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
+#include "syscall.h"
 #include "vm/frame.h"
 #include "vm/page.h"
 #include "vm/swap.h"
@@ -122,6 +123,7 @@ void init_master_process( process_t* proc) {
   proc->exit_code = -1;
   proc->exe_file = NULL; 
   list_init( &proc->owned_file_descriptors);
+  list_init( &proc->mmap_list);
   proc->num_of_opened_files = 0;
   //we don't really need the process_lock for the master process  
 }
@@ -133,6 +135,7 @@ void init_process( process_t* proc ) {
   proc->exit_code = -1;
   proc->exe_file = NULL;
   list_init( &proc->owned_file_descriptors);
+  list_init( &proc->mmap_list);
   proc->num_of_opened_files = 0;
 #ifdef VM
   supl_pt_init(&proc->supl_pt);
@@ -370,7 +373,8 @@ process_exit (void)
   else {
     exit_code = current->exit_code;
   }
-  lock_acquire(&file_sys_lock);
+  munmap_all();
+  lock_acquire(&file_sys_lock);  
   free_fd_list();
 
 #ifdef VM
