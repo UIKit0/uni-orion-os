@@ -172,7 +172,7 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-
+  
 #ifdef VM
   if(not_present)
   {
@@ -192,19 +192,19 @@ page_fault (struct intr_frame *f)
 			}
 			else
 			{
-				//invalid access
+   			//invalid access
 				//printf("Invalid access. Page not found!\n");
 				INVALID_ACCESS();
 			}
 	  }
 	  else if(!load_page_lazy(p, spte))
 	  {
-		  //printf("Page could not be loaded");
+   	  //printf("Page could not be loaded");
 		  kill(f);
 	  }
   }
   else {
-	  //writing r/o page
+    //writing r/o page
 	  //printf("Invalid access\n");
 	  INVALID_ACCESS();
   }

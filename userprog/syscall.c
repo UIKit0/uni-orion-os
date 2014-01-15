@@ -8,6 +8,7 @@
 #include "filesys/file.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "userprog/pagedir.h"
 #ifdef VM
 	#include "vm/frame.h"
 	#include "vm/page.h"
@@ -463,7 +464,7 @@ static void syscall_mmap(struct intr_frame *f) {
 		return;
 	}
 
-	if((int)addr % PGSIZE != 0 && (int)addr > 0) {
+	if((int)addr % PGSIZE != 0 || addr == NULL) {
 		return;
 	}
 
@@ -476,14 +477,6 @@ static void syscall_mmap(struct intr_frame *f) {
 	int pageIndex = 0;
 
 	while(pageIndex < pageNumber) {
-		if(supl_pt_get_spte(p, addr) != NULL) {
-			//rollback & break
-			while(pageIndex >= 0) {
-				supl_pt_remove(&(p->supl_pt), gPages[pageNumber]);
-				--pageIndex;
-			}			
-			return;
-		}
 		supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
 		spte->virt_page_no = pg_no(addr);
 		spte->virt_page_addr = addr;
@@ -491,7 +484,17 @@ static void syscall_mmap(struct intr_frame *f) {
 		spte->writable = true;
 		spte->page_read_bytes = 0; //this page will be always written to swap
 		supl_pt_insert(&(p->supl_pt), spte);
-		gPages[pageNumber] = spte;
+		gPages[pageIndex] = spte;
+		if(supl_pt_get_spte(p, addr) != NULL) {			
+			//rollback & break
+			while(pageIndex >= 0) {
+				supl_pt_remove(&(p->supl_pt), gPages[pageIndex]);
+				--pageIndex;
+			}		
+			kill_current_process();	
+			return;			
+		}
+		pagedir_set_present(thread_current()->pagedir, addr, false);
 		addr += PGSIZE;
 		pageIndex++;
 	}
