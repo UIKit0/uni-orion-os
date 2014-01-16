@@ -740,14 +740,15 @@ bool load_page_mm(struct file* fd, int ofs, uint8_t *upage) {
 
   pagedir_set_page(crt_thread->pagedir, upage, frame->kpage, true);
   pagedir_set_present(crt_thread->pagedir, upage, true);
-  pagedir_set_dirty(crt_thread->pagedir, upage, true);
-
+  pagedir_set_dirty(crt_thread->pagedir, upage, false);
 
   filesys_lock();
+  int beforeoff = file_tell(fd);
   file_seek(fd, ofs);
   int filesize = file_length(fd);
   int bytesToRead = filesize < PGSIZE + ofs ? filesize - ofs : PGSIZE;
   file_read(fd, frame->kpage, bytesToRead);
+  file_seek(fd, beforeoff);
   filesys_unlock(); 
 
   //printf("bytesToRead: %d\nupage: %p\nkpage: %p\n", bytesToRead, upage, frame->kpage);
@@ -757,10 +758,13 @@ bool load_page_mm(struct file* fd, int ofs, uint8_t *upage) {
 
 bool save_page_mm(struct file* fd, int ofs, uint8_t *kpage) {
   filesys_lock();
+  int beforeoff = file_tell(fd);
+  
   file_seek(fd, ofs);
   int filesize = file_length(fd);
   int bytesToWrite = filesize < PGSIZE + ofs ? filesize - ofs : PGSIZE;
   file_write(fd, kpage, bytesToWrite);
+  file_seek(fd, beforeoff);
   filesys_unlock();
   return true;
 }

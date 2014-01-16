@@ -559,7 +559,7 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 
 	while(addr < (char*)fl->user_provided_location + fl->file_size) {
 		void *kpage = pagedir_get_page (pd, addr);
-		if(kpage) {
+		if(kpage && pagedir_is_dirty(pd, addr)) {
 			save_page_mm(fl->fd, addr - (char*)fl->user_provided_location, kpage);
 			pagedir_clear_page(pd, addr);
 		}
