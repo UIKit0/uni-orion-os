@@ -46,6 +46,7 @@ typedef int mapid_t;
 struct mapped_file {
 	mapid_t id;
 	struct file *fd;
+	int fd2;
 	void *user_provided_location;
 	size_t file_size;
 	struct list_elem lst;
@@ -54,7 +55,7 @@ typedef struct mapped_file mapped_file;
 
 struct fd_list_link {
 	struct list_elem l_elem;
-	int fd;
+	int fd;	
 	struct file *file;
 	bool mapped;
 };

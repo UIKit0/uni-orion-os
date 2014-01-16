@@ -185,10 +185,6 @@ static struct list_elem* mf_remove_file(mapped_file *mf) {
 	return e;
 }
 
-static void mfd_remove_file(int mfd) {
-	mf_remove_file(mfd_get_file(mfd));
-}
-
 static mapid_t mfd_create(void) {
 	struct list* file_descriptors = &process_current()->mmap_list;
 	struct list_elem *e;
@@ -483,6 +479,7 @@ static void syscall_mmap(struct intr_frame *f) {
 	int pageNumber = filesize / PGSIZE + zeroOrOne;
 	int pageIndex = 0;
 
+
 	struct thread *th = thread_current();
 
 	while(pageIndex < pageNumber) {
@@ -512,6 +509,7 @@ static void syscall_mmap(struct intr_frame *f) {
 	mf->id = mfd_create();
 	mf->user_provided_location = addrStart;
 	mf->fd = fl;
+	mf->fd2 = fd;
 	mf->file_size = filesize;
 
 	struct fd_list_link* link = fd_get_link(fd);
@@ -543,7 +541,7 @@ void munmap_all(void) {
 	for (e = list_begin(file_descriptors); e != list_end(file_descriptors);) {
 		mapped_file *mmentry = list_entry(e, mapped_file, lst);
 		e = mummap_wrapped(mmentry);		
-	}
+	}	
 }
 
 static struct list_elem* mummap_wrapped(mapped_file *fl) {
@@ -555,11 +553,28 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 	if(cfile == NULL) {
 		return mf_remove_file(fl);		
 	}
-	void *addr = fl->user_provided_location;
-	while(addr < fl->user_provided_location + fl->file_size) {
-		ft_evict_frame(ft_alloc_frame(false, addr));
+	char *addr = (char *)fl->user_provided_location;
+	uint32_t *pd = thread_current()->pagedir;
+
+	while(addr < (char*)fl->user_provided_location + fl->file_size) {
+		void *kpage = pagedir_get_page (pd, addr);
+		if(kpage) {
+			save_page_mm(fl->fd, addr - (char*)fl->user_provided_location, kpage);
+			pagedir_clear_page(pd, addr);
+		}
 		addr += PGSIZE;
-	}	
+	}
+	struct fd_list_link* link = fd_get_link(fl->fd2);	
+
+	if(!link) {
+		filesys_lock();
+		file_close(fl->fd);
+		filesys_unlock();
+	}
+	else {
+		link->mapped = false;
+	}
+	
 	return mf_remove_file(fl);
 }
 
