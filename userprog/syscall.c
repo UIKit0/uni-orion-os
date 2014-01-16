@@ -35,7 +35,7 @@ static void syscall_close(struct intr_frame *f);
 static void syscall_mmap(struct intr_frame *f);
 static void syscall_munmap(struct intr_frame *f);
 
-static int mummap_wrapped(mapped_file *fl);
+static struct list_elem* mummap_wrapped(mapped_file *fl);
 
 /* Initializes the syscall handler. */
 void syscall_init (void) {
@@ -176,12 +176,13 @@ static mapped_file *mfd_get_file(int mfd) {
 	return NULL;
 }
 
-static void mf_remove_file(mapped_file *mf) {
+static struct list_elem* mf_remove_file(mapped_file *mf) {
 	if(mf == NULL)
-		return;
+		return NULL;
 
-	list_remove(&mf->lst);
+	struct list_elem *e = list_remove(&mf->lst);
 	free(mf);
+	return e;
 }
 
 static void mfd_remove_file(int mfd) {
@@ -204,13 +205,13 @@ static mapid_t mfd_create(void) {
 /*
  *	Returns the list element that links this file descriptor;
  */
-static struct list_elem *fd_get_list_elem(int fd) {
+static struct fd_list_link *fd_get_link(int fd) {
 	struct list* file_descriptors = &process_current()->owned_file_descriptors;
 	struct list_elem *e;
 	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
 		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
 		if (link->fd == fd) {
-			return &link->l_elem;
+			return link;
 		}
 	}
 	return NULL;
@@ -317,6 +318,7 @@ static void syscall_open(struct intr_frame *f) {
 
 	link->fd = fd;
 	link->file = file;
+	link->mapped = false;
 	list_push_back(&current->owned_file_descriptors, &(link->l_elem));
 	current->num_of_opened_files++;
 
@@ -433,7 +435,10 @@ static void syscall_close(struct intr_frame *f) {
 	
 	current->num_of_opened_files--;
 	filesys_lock();
-	file_close(fd_get_file(fd));
+	struct fd_list_link *link = fd_get_link(fd);
+	if(link->mapped == false) {
+		file_close(link->file);
+	}	
 	filesys_unlock();
 	fd_remove_file(fd);
 }
@@ -461,6 +466,7 @@ static void syscall_mmap(struct intr_frame *f) {
 
 	struct file* fl = fd_get_file(fd);
 
+	
 	if(fl == NULL) {
 		return;
 	}
@@ -505,8 +511,12 @@ static void syscall_mmap(struct intr_frame *f) {
 	mapped_file *mf = (mapped_file *)malloc(sizeof(mapped_file));
 	mf->id = mfd_create();
 	mf->user_provided_location = addrStart;
-	mf->fd = fd;
-	mf->file_size = filesize;	
+	mf->fd = fl;
+	mf->file_size = filesize;
+
+	struct fd_list_link* link = fd_get_link(fd);
+	link->mapped = true;
+
 
 	list_push_back(&p->mmap_list, &(mf->lst));
 	get_mapped_file_from_page_pointer(addrStart);
@@ -529,39 +539,35 @@ mapped_file *get_mapped_file_from_page_pointer(void *pagePointer) {
 void munmap_all(void) {
 	process_t *cp = process_current();
 	struct list* file_descriptors = &cp->mmap_list;
-	struct list_elem *e, *next_e;
+	struct list_elem *e;
 	for (e = list_begin(file_descriptors); e != list_end(file_descriptors);) {
 		mapped_file *mmentry = list_entry(e, mapped_file, lst);
-		next_e = list_next(e);
-		mummap_wrapped(mmentry);
-		e = next_e;
-	}	
+		e = mummap_wrapped(mmentry);		
+	}
 }
 
-static int mummap_wrapped(mapped_file *fl) {
+static struct list_elem* mummap_wrapped(mapped_file *fl) {
 	if(fl == NULL) {
-		return -1;
+		return NULL;
 	}
-
-	struct file* cfile = fd_get_file(fl->fd);
+	struct file* cfile = fl->fd;
 
 	if(cfile == NULL) {
-		mf_remove_file(fl);
-		return -1;
+		return mf_remove_file(fl);		
 	}
-
-	filesys_lock();
-	file_write(cfile, fl->user_provided_location, fl->file_size);
-	filesys_unlock();
-	mf_remove_file(fl);
-	return 0;
+	void *addr = fl->user_provided_location;
+	while(addr < fl->user_provided_location + fl->file_size) {
+		ft_evict_frame(ft_alloc_frame(false, addr));
+		addr += PGSIZE;
+	}	
+	return mf_remove_file(fl);
 }
 
 static void syscall_munmap(struct intr_frame *f) {
 	f->eax = -1;
 	int mfd = (int) ((int*)f->esp)[1];	
 	mapped_file* fl = mfd_get_file(mfd);
-	f->eax = mummap_wrapped(fl);	
+	mummap_wrapped(fl);	
 }
 
 static void syscall_handler (struct intr_frame *f) 

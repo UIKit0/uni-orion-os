@@ -730,7 +730,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
-bool load_page_mm(int fd, int ofs, uint8_t *upage) {
+bool load_page_mm(struct file* fd, int ofs, uint8_t *upage) {
   frame* frame = ft_alloc_frame(true, upage);  
   if(frame == NULL) {
     PANIC("Kernel panic - Insufficient memory");
@@ -738,18 +738,16 @@ bool load_page_mm(int fd, int ofs, uint8_t *upage) {
 
   struct thread *crt_thread = thread_current();
 
-
   pagedir_set_page(crt_thread->pagedir, upage, frame->kpage, true);
   pagedir_set_present(crt_thread->pagedir, upage, true);
   pagedir_set_dirty(crt_thread->pagedir, upage, true);
 
 
-  struct file* fl = fd_get_file(fd);
   filesys_lock();
-  file_seek(fl, ofs);
-  int filesize = file_length(fl);
+  file_seek(fd, ofs);
+  int filesize = file_length(fd);
   int bytesToRead = filesize < PGSIZE + ofs ? filesize - ofs : PGSIZE;
-  file_read(fl, frame->kpage, bytesToRead);
+  file_read(fd, frame->kpage, bytesToRead);
   filesys_unlock(); 
 
   //printf("bytesToRead: %d\nupage: %p\nkpage: %p\n", bytesToRead, upage, frame->kpage);
@@ -757,13 +755,12 @@ bool load_page_mm(int fd, int ofs, uint8_t *upage) {
   return true;  
 }
 
-bool save_page_mm(int fd, int ofs, uint8_t *kpage) {
-  struct file* fl = fd_get_file(fd);
+bool save_page_mm(struct file* fd, int ofs, uint8_t *kpage) {
   filesys_lock();
-  file_seek(fl, ofs);
-  int filesize = file_length(fl);
+  file_seek(fd, ofs);
+  int filesize = file_length(fd);
   int bytesToWrite = filesize < PGSIZE + ofs ? filesize - ofs : PGSIZE;
-  file_write(fl, kpage, bytesToWrite);
+  file_write(fd, kpage, bytesToWrite);
   filesys_unlock();
   return true;
 }
