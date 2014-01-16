@@ -23,6 +23,6 @@ void supl_pt_free(struct hash *);
 void supl_pt_insert(struct hash *spt, supl_pte *spte);
 void supl_pt_remove(struct hash *spt, supl_pte *spte);
 supl_pte* supl_pt_get_spte(process_t *p, void *uaddr);
-
+void supl_pt_remove_spte(process_t *p, void *uaddr);
 
 #endif

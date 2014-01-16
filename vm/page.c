@@ -75,3 +75,10 @@ supl_pte *supl_pt_get_spte(process_t *p, void *uaddr)
 	uint32_t pg_nr = pg_no(uaddr);
 	return page_lookup(p, pg_nr);
 }
+
+void supl_pt_remove_spte(process_t *p, void *uaddr) {
+	supl_pte* pte = page_lookup(p, pg_no(uaddr));
+	if(pte) {
+		supl_pt_remove(&(p->supl_pt), pte);
+	}
+}

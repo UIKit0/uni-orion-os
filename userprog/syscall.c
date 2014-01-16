@@ -499,7 +499,7 @@ static void syscall_mmap(struct intr_frame *f) {
 			}			
 			return;			
 		}
-		supl_pt_insert(&(p->supl_pt), spte);		
+		supl_pt_insert(&(p->supl_pt), spte);
 		pagedir_set_present(th->pagedir, addr, false);
 		addr += PGSIZE;
 		pageIndex++;
@@ -555,6 +555,7 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 	}
 	char *addr = (char *)fl->user_provided_location;
 	uint32_t *pd = thread_current()->pagedir;
+	process_t *pr_crt = process_current();
 
 	while(addr < (char*)fl->user_provided_location + fl->file_size) {
 		void *kpage = pagedir_get_page (pd, addr);
@@ -562,6 +563,7 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 			save_page_mm(fl->fd, addr - (char*)fl->user_provided_location, kpage);
 			pagedir_clear_page(pd, addr);
 		}
+		supl_pt_remove_spte(pr_crt, addr);
 		addr += PGSIZE;
 	}
 	struct fd_list_link* link = fd_get_link(fl->fd2);	
@@ -572,7 +574,7 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 		filesys_unlock();
 	}
 	else {
-		link->mapped = false;
+		link->mapped = false;		
 	}
 	
 	return mf_remove_file(fl);
