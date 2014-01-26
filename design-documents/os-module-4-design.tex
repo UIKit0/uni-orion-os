@@ -41,6 +41,7 @@ We have to modify the functions:
   bool
   inode_create( block_sector_t sector, off_t length )
   {
+    if ( free_map_try_allocate( sectors, &disk_inode ) )
     ...
     for ( i = 0; i < sectors; ++i )
       block_write( fs_device, get_sector( disk_inode->start, i ), zeros );
@@ -60,11 +61,13 @@ We have to modify the functions:
     free_map_release( inode->sector, 1 );
     int number_of_sectors = get_number_of_sectors( inode->data );
     block_sector_t sector = inode->data.start;
+    struct inode_disk disk_inode;
     int i;
     for ( i = 0; i <= number_of_sectors; i++ )
     {
+      block_read( fs_device, sector, &disk_inode );
       free_map_release( sector, 1 );
-      sector = sector.next_sector;
+      sector = disk_inode.next_sector;
     }
     ...
   }
@@ -87,7 +90,9 @@ We have to create the following methods:
     }
     else
     {
-      get_sector( &inode_disk->next_sector, n - 1 );
+      struct disk_inode disk_inode;
+      block_read( fs_device, inode_disk->next_sector, &disk_inode );
+      get_sector( &disk_inode, n - 1 );
     }
   }
 
@@ -103,9 +108,31 @@ We have to create the following methods:
     }
     else
     {
-      size = get_size( disk_inode->next_sector ) + disk_inode->length;
+      struct disk_inode read_disk_inode;
+      block_read( fs_device, disk_inode->next_sector, &read_disk_inode );
+      size = get_size( &read_disk_inode ) + disk_inode->length;
     }
     return size;
+  }
+
+  /* Gets the last sector */
+  block_sector_t
+  get_last_sector( struct inode_disk* disk_inode )
+  {
+      return get_sector( disk_inode, get_number_of_sectors( disk_inode ) );
+  }
+
+  /* Gets the last inode_disk */
+  inode_disk*
+  get_last_disk_inode( struct inode_disk* disk_inode )
+  {
+    while( disk_inode->next_sector != 0 )
+    {
+	struct inode_disk read_disk_inode;
+	block_read( fs_device, disk_inode->next_sector, &read_disk_inode );
+	return get_last_disk_inode( read_disk_inode );
+    }
+    return disk_inode;
   }
 
   /* Returns the number of sectors that inode has; */
@@ -119,6 +146,42 @@ We have to create the following methods:
   bool
   extend_size( struct inode_disk *disk_inode )
   {
+  }
+
+  /* Tries to allocate cnt sectors, stores the first in sectorp */
+  bool
+  free_map_try_allocate( size_t cnt, inode_disk *disk_inode )
+  {
+    block_sector_t sector;
+    size_t total_number_of_sectors_allocated = 0;
+    size_t blocks_to_allocate = 1;
+    bool first_time = true;
+    while ( total_number_of_sectors_allocated != cnt )
+    {
+	while ( !free_map_allocate( blocks_to_allocate, &sector ) || blocks_to_allocate == 0 )
+	{
+	    --blocks_to_allocate;
+	}
+	if ( blocks_to_allocate == 0 )
+	{
+	  return false;
+	}
+
+	if ( first_time )
+	{
+	  disk_inode->start = sector;
+	  disk_inode->next_sector = 0;
+	  first_time = false;
+	}
+	else
+	{
+	  get_last_disk_inode( disk_inode ).next_sector = sector;
+	  
+	}
+
+	total_number_of_sectors_allocated += blocks_to_allocate;
+	//blocks_to_allocate = cnt - total_number_of_sectors_allocated;
+    }
   }
 
 \end{lstlisting}
