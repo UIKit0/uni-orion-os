@@ -14,20 +14,19 @@ static void do_format (void);
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
-void
-filesys_init (bool format) 
+void filesys_init(bool format) 
 {
-  fs_device = block_get_role (BLOCK_FILESYS);
-  if (fs_device == NULL)
-    PANIC ("No file system device found, can't initialize file system.");
+    fs_device = block_get_role(BLOCK_FILESYS);
+    if (fs_device == NULL)
+        PANIC("No file system device found, can't initialize file system.");
 
-  inode_init ();
-  free_map_init ();
+    inode_init();
+    free_map_init();
 
-  if (format) 
-    do_format ();
+    if (format) 
+        do_format();
 
-  free_map_open ();
+    free_map_open();
 }
 
 /* Shuts down the file system module, writing any unwritten data
@@ -63,17 +62,16 @@ filesys_create (const char *name, off_t initial_size)
    otherwise.
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
-struct file *
-filesys_open (const char *name)
+struct file *filesys_open(const char *name)
 {
-  struct dir *dir = dir_open_root ();
-  struct inode *inode = NULL;
+    struct dir *dir = dir_open_root();
+    struct inode *inode = NULL;
 
-  if (dir != NULL)
-    dir_lookup (dir, name, &inode);
-  dir_close (dir);
+    if (dir != NULL)
+        dir_lookup(dir, name, &inode);
+    dir_close(dir);
 
-  return file_open (inode);
+    return file_open(inode);
 }
 
 /* Deletes the file named NAME.

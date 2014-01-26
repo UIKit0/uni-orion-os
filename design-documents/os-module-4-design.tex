@@ -139,23 +139,133 @@ Design Decisions
 
 Tests
 
+
+
 \section{Subdirectories}
+
 \subsection{Initial Functionality}
 
-Initial Functionality
+Currently, the root directory is represented by an inode stored at segment 1 which contains enough information to store 16 dir\_entries. Each dir\_entry represents a file. This means the filesystem does not support subdirectories and only supports 16 files inside the root directory. Moreover, the file names are restricted to 14 characters.
   
-
 \subsection{Data Structures and Functions}
   
-Data Structures and Functions
+\begin{lstlisting}
+// ---------------------------------------------
+// in process.h
+// ---------------------------------------------
+
+struct process_t {
+...
+#ifdef FILESYS
+    // current directory
+    struct dir *current_directory;
+#endif
+};
+
+struct fd_list_link {
+    struct list_elem l_elem;
+    int fd;
+    bool is_file;
+    union {
+	struct dir *dir;
+	struct file *file;
+    }
+    bool mapped;
+};
+
+// ---------------------------------------------
+// in directory.c
+// ---------------------------------------------
+
+struct dir 
+{
+    struct inode *inode;
+    off_t pos;
+    struct dir *parent;
+};
+
+struct dir_entry 
+{
+    block_sector_t inode_sector;
+    char name[NAME_MAX + 1];
+    bool is_file;
+    bool in_use;
+};
+
+// ---------------------------------------------
+// in directory.h
+// ---------------------------------------------
+
+/**
+ *  Used to identify the type of a path.
+ */
+enum path_type {
+  T_FILE,
+  T_DIR,
+  T_INVALID
+};
+
+/**
+ *  Identifies the type of a path.
+ */
+path_type identify_path_type(const char *path);
+
+/**
+ *  Interprets path and attempts to create a
+ *  dir structure representing it.
+ *  Returns NULL if the path is invalid
+ */
+dir *parse_dir_path(const char *path);
+
+/**
+ *  Interprets path and attempts to create a
+ *  file structure representing it.
+ *  Returns NULL if the path is invalid
+ */
+file *parse_file_path(const char *path);
+
+/**
+ *  Adds a new subdirectory. Returns false if the name 
+ *  is already used for another entry.
+ */
+bool dir_add_subdir(dir *dir, const char *name);
+
+/**
+ *  Attempts to remove a subdirectory. Returns false
+ *  if the removal failed. This can happen if the subdirectory
+ *  is not empty.
+bool dir_remove_subdir(dir *dir, const char *name);
+
+// ---------------------------------------------
+// in userprog/syscall.h
+// ---------------------------------------------
+
+static void syscall_chdir(struct intr_frame *f);
+static void syscall_mkdir(struct intr_frame *f);
+static void syscall_readdir(struct intr_frame *f);
+static void syscall_isdir(struct intr_frame *f);
+static void syscall_inumber(struct intr_frame *f);
+
+\end{lstlisting}
+
 
 \subsection{Functionality}
-  
-Functionality
+
+For subdirectories, we chose to leave the inode\_disk structure intact, but update the dir\_entry instead. This structure is saved on disk, and represents an entry in a directory. The entry can either be a file or a directory so we must make this distinction. We chose to add an enum to the entry structure which indicates whether it's a file or directory. This allows us to treat the contents represented by the inode of the dir\_entry as either a file or a list of other dir\_entries.
+
+The path parsing functions take as input a char* containing a path, handle the ``.'' and ``..'' special names, and attempt to walk the path by starting at the root path inode. If a name in the path is not found, or a file is found where a directory is expected, the functions return NULL.
+
+When a new process is created, we use the path parsing functions to create a dir* from the executable path. This dir* is stored as the process's current directory. It's also used by the path parsing functions when the special name ``.'' is required.
+
+The file descriptor has been updated to be aware of whether it represents a file or a directory. Old syscalls are also updated to use the path parsing functions and produce a corresponding file descriptor.
+
+The remove filesys call will make use of the dir\_remove\_subdir to remove empty directories.
 
 \subsection{Design Decisions}
   
-Design Decisions
+We chose to make the distinction between a file and a folder in the dir\_entry structure as opposed to the disk\_inode structure, because it keeps the meaning of each structure. Unfortunately, this means that an inode does not contain information about whether it's contents represent a file or a directory. We believe this to be acceptable, since it's the operating system's responsibility to interpret the directory structure, and it should not rely only on inode information. 
+
+Storing the is\_file flag in both the disk\_inode and dir\_entry could lead to a desynchronization between the two, but would allow the operating system to interpret the information represented by the inode. But since this information is used in a context dependent fashion, the type of content represented by the inode should already be known, so storing this information inside the inode would most likely be useless.
 
 \subsection{Tests}
 
