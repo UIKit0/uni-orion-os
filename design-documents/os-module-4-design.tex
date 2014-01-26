@@ -4,11 +4,125 @@
 \section{Indexed and Extensible Files}
 \subsection{Initial Functionality}
   
-Initial Functionality
+Currently the file are allocated like continous sectors. If there aren't n contiunous blocks free than a 
+file which has the size n * BLOCK_SECTOR_SIZE can not be allocated. We have to change this implementation
+so a file can be allocated in n noncontiunous blocks.
 
 \subsection{Data Structures and Functions}
 
-Data Structures and Functions
+We have to modify the structure:
+
+\begin{lstlisting}
+
+  struct inode_disk
+  {
+    ...
+    block_sector_t next_sector; /* we store the address of the next sector */
+    uint32_t unused[124]	      /* we modify the size of the array so that the size of inode_disk is still 
+				BLOCK_SECTOR_SIZE */
+  }
+
+\end{lstlisting}
+
+We have to modify the functions:
+\begin{lstlisting}
+ 
+  static block_sector_t
+  byte_to_sector( const struct inode *inode, off_t pos )
+  {
+    ...
+    if ( pos < get_size( inode->data )
+    {
+	get_sector( inode->data, pos / BLOCK_SECTOR_SIZE ); 
+    }
+    ...
+  }
+
+  bool
+  inode_create( block_sector_t sector, off_t length )
+  {
+    ...
+    for ( i = 0; i < sectors; ++i )
+      block_write( fs_device, get_sector( disk_inode->start, i ), zeros );
+    ...
+  }
+
+  off_t
+  inode_length( const struct inode *inode )
+  {
+    return get_size( &inode->data );
+  }
+
+  void
+  inode_close( struct inode *inode )
+  {
+    ...
+    free_map_release( inode->sector, 1 );
+    int number_of_sectors = get_number_of_sectors( inode->data );
+    block_sector_t sector = inode->data.start;
+    int i;
+    for ( i = 0; i <= number_of_sectors; i++ )
+    {
+      free_map_release( sector, 1 );
+      sector = sector.next_sector;
+    }
+    ...
+  }
+
+\end{lstlisting}
+
+
+We have to create the following methods:
+\begin{lstlisting}
+
+  /* Gets the inode_disk, and a index representing the index of the sector which 
+  inode stores.
+     Returns the index sector */
+  static block_sector_t
+  get_sector( struct inode_disk* inode_disk, int n )
+  {
+    if ( n == 0 )
+    {
+      return inode_disk->start;
+    }
+    else
+    {
+      get_sector( &inode_disk->next_sector, n - 1 );
+    }
+  }
+
+  /* Gets the size of the file */
+  off_t
+  get_size( struct inode_disk *disk_inode )
+  {
+    off_t size = 0;
+    
+    if ( disk_inode->next_sector == 0 ) /* Is the last sector */
+    {
+      size = disk_inode->length;
+    }
+    else
+    {
+      size = get_size( disk_inode->next_sector ) + disk_inode->length;
+    }
+    return size;
+  }
+
+  /* Returns the number of sectors that inode has;
+  off_t
+  get_number_of_sectors( struct inode_disk *disk_inode )
+  {
+    return get_size( disk_inode ) / BLOCK_SECTOR_SIZE;
+  }
+
+  
+  bool
+  extend_size( struct inode_disk *disk_inode )
+  {
+  }
+
+\end{lstlisting}
+
   
 
 \subsection{Functionality}
