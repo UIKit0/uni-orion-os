@@ -142,13 +142,14 @@ We have to create the following methods:
     return get_size( disk_inode ) / BLOCK_SECTOR_SIZE;
   }
 
-  
+  /* Adds cnt sectors to the disk_inode */
   bool
-  extend_size( struct inode_disk *disk_inode )
+  extend_size( struct inode_disk *disk_inode, size_t cnt )
   {
+    return free_map_try_allocate( cnt, get_last_disk_inode( disk_inode );
   }
 
-  /* Tries to allocate cnt sectors, stores the first in sectorp */
+  /* Tries to allocate cnt sectors */
   bool
   free_map_try_allocate( size_t cnt, inode_disk *disk_inode )
   {
