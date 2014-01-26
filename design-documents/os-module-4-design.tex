@@ -5,7 +5,7 @@
 \subsection{Initial Functionality}
   
 Currently the file are allocated like continous sectors. If there aren't n contiunous blocks free than a 
-file which has the size n * BLOCK_SECTOR_SIZE can not be allocated. We have to change this implementation
+file which has the size n * BLOCK\_SECTOR\_SIZE can not be allocated. We have to change this implementation
 so a file can be allocated in n noncontiunous blocks.
 
 \subsection{Data Structures and Functions}
@@ -108,7 +108,7 @@ We have to create the following methods:
     return size;
   }
 
-  /* Returns the number of sectors that inode has;
+  /* Returns the number of sectors that inode has; */
   off_t
   get_number_of_sectors( struct inode_disk *disk_inode )
   {
