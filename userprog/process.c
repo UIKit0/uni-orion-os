@@ -191,20 +191,18 @@ process_execute (const char *buf)
     return PID_ERROR;
   }  
 
-  strlcpy (fn_copy, buf, PGSIZE);
-  strlcpy (fn_copy_name, buf, PGSIZE);
+  strlcpy(fn_copy, buf, PGSIZE);
+  strlcpy(fn_copy_name, buf, PGSIZE);
 
   /* Initialize process and add it into the hash table. */
   init_process(p);
   insert_process(p);
 
-
-
   char* save_ptr;
-  char* file_name = strtok_r( fn_copy_name, " ", &save_ptr );
+  char* file_name = strtok_r(fn_copy_name, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid_t tid = thread_process_create ( file_name, PRI_DEFAULT, start_process, fn_copy, p);
+  tid_t tid = thread_process_create(file_name, PRI_DEFAULT, start_process, fn_copy, p);
 
   palloc_free_page(fn_copy_name);
 
@@ -214,7 +212,7 @@ process_execute (const char *buf)
     return PID_ERROR;
   }
 
-  sema_down (&(p->process_semaphore));
+  sema_down(&(p->process_semaphore));
   
   if( p->status == INVALID ) {
     delete_process(p);    

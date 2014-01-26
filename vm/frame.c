@@ -48,11 +48,11 @@ void ft_init(void)
  */
 void ft_insert_frame(frame *f)
 {
+	//lock_acquire(&ft_lock);
 	f->pinned = true;
-	lock_acquire(&ft_lock);
 	list_push_back(&frame_table, &(f->list_elem));
-	lock_release(&ft_lock);
 	f->pinned = false;
+	//lock_release(&ft_lock);
 }
 
 /**
@@ -62,11 +62,11 @@ void ft_insert_frame(frame *f)
  */
 void ft_remove_frame(frame* frame)
 {
-	frame->pinned = true;
 	lock_acquire(&ft_lock);
+	frame->pinned = true;
 	list_remove(&(frame->list_elem));
-	lock_release(&ft_lock);
 	free(frame);
+	lock_release(&ft_lock);
 }
 
 /**
@@ -80,6 +80,7 @@ void ft_remove_frame(frame* frame)
  */
 frame* ft_alloc_frame(bool zero_page, void *page_u_addr)
 {
+	lock_acquire(&ft_lock);
 	enum palloc_flags flags = PAL_USER | (zero_page ? PAL_ZERO : 0);
 
 	void *page_k_addr = palloc_get_page(flags);
@@ -89,6 +90,7 @@ frame* ft_alloc_frame(bool zero_page, void *page_u_addr)
 		f->upage = page_u_addr;
 		f->pinned = false;
 		ft_insert_frame(f);
+		lock_release(&ft_lock);
 		return f;
 	} else {
 		frame *lru_f = ft_get_lru_frame();
@@ -98,6 +100,7 @@ frame* ft_alloc_frame(bool zero_page, void *page_u_addr)
 
 			if(!ft_evict_frame(lru_f))
 			{
+				lock_release(&ft_lock);
 				return NULL;
 			}
 
@@ -107,18 +110,21 @@ frame* ft_alloc_frame(bool zero_page, void *page_u_addr)
 
 			lru_f->pinned = false;
 		}
-
+		lock_release(&ft_lock);
 		return lru_f;
 	}
 
+	lock_release(&ft_lock);
 	return NULL ; //not reachable
 }
 
 void ft_free_frame(frame *f)
 {
+	lock_acquire(&ft_lock);
 	pagedir_clear_page(thread_current()->pagedir, f->upage);
 	palloc_free_page(f->kpage);
 	ft_remove_frame(f);
+	lock_release(&ft_lock);
 }
 
 /**
@@ -126,6 +132,7 @@ void ft_free_frame(frame *f)
  */
 frame *ft_get_lru_frame(void)
 {
+	// lock_acquire(&ft_lock);
 	static struct list_elem *e = NULL;
 
 	if (e == NULL) {
@@ -143,6 +150,7 @@ frame *ft_get_lru_frame(void)
 
 		frame *f = list_entry(e, frame, list_elem);
 		if (!pagedir_is_accessed(thread_current()->pagedir, f->upage) && !f->pinned) {
+			// lock_release(&ft_lock);
 			return f;
 		} else {
 			pagedir_set_accessed(thread_current()->pagedir, f->upage, false);
@@ -160,6 +168,7 @@ frame *ft_get_lru_frame(void)
  */
 bool ft_evict_frame(frame* frame)
 {
+	// lock_acquire(&ft_lock);
 	struct thread *t = thread_current();
 
 	struct supl_pte *pte = supl_pt_get_spte(process_current(), frame->upage);
@@ -179,12 +188,14 @@ bool ft_evict_frame(frame* frame)
 
 		if (pte->swap_slot_no < 0)
 		{
+			// lock_release(&ft_lock);
 			return false;
 		}
 	}
 
 	pagedir_clear_page(t->pagedir, frame->upage);
 
+	// lock_release(&ft_lock);
 	return true;
 }
 
@@ -194,9 +205,11 @@ bool ft_evict_frame(frame* frame)
  */
 void ft_pin_frame(const void *uaddr)
 {
+	lock_acquire(&ft_lock);
 	void *kpage = pagedir_get_page(thread_current()->pagedir, uaddr);
 	frame *f = frame_lookup(kpage);
 	f->pinned = false;
+	lock_release(&ft_lock);
 }
 
 /**
@@ -205,7 +218,9 @@ void ft_pin_frame(const void *uaddr)
  */
 void ft_unpin_frame(const void *uaddr)
 {
+	lock_acquire(&ft_lock);
 	void *kpage = pagedir_get_page(thread_current()->pagedir, uaddr);
 	frame *f = frame_lookup(kpage);
 	f->pinned = false;
+	lock_release(&ft_lock);
 }
