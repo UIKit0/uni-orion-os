@@ -363,21 +363,69 @@ Push to a new Page
 \section{Synchronization}
 \subsection{Initial Functionality}
 
-Initial Functionality
+At the beginning of this project, our filesystem needs external synchronization to function properly. Actually at this moment only on process can be in filesys code at a time whether this condition is needed or not. We want to implement a finer-grained synchronization, that is internal (a. k. a. the kernel doesn't have to worry about synchronizing access to files).
   
 
 \subsection{Data Structures and Functions}
   
-Data Structures and Functions
+\begin{lstlisting}
+  // in memory inode 
+  struct inode 
+  {
+    ...
+    /* a lock / inode used for directory/files
+       operations synchronizations. This is 
+       stored in in-memory inode. Should not be
+       saved on the disk. */
+    struct lock inode_lock; 
+  }
+
+  //in cache
+  struct cache_block
+  {
+    ... 
+    // a lock / block 
+    struct lock block_lock;
+  }
+
+\end{lstlisting}
 
 \subsection{Functionality}
   
-Functionality
+\begin{lstlisting}
+  // In directory.c
+  dir_operation
+      lock_acquire(dir->inode.inode_lock);
+      ...
+      lock_release(dir->inode.inode_lock);
+  dir_operation_end
+
+  inode_write_at()
+    if( offset < size )
+      lock_acquire(inode.inode_lock);
+      extend_file() // do not update file's length yet
+      block_write
+      inode.length = new_length;
+      lock_release(inode.inode_lock);
+    
+  //In cache.c:
+  cache_operation
+      lock_acquire(dir->inode.inode_lock);
+      ...
+      lock_release(dir->inode.inode_lock);
+  cache_operation_end
+
+\end{lstlisting}
 
 \subsection{Design Decisions}
   
-Design Decisions
+We chosed to keep an lock per inode because the simplicity of the solution. This also respects the requirements that operations on different entities should be done in parallel, while operations on the same entity may wait one after another. The lock has to be kept in the inode and not in the file or dir structure because the file and dir structure are allocated for each process separately, even if they might point to the same inode.
+Synchronization code is put in directories and not in the inodes, because, there are operations on inodes which should be able to happen concurently like reading/writing from/to a file.
+
+We used the same rationale for caching synchronization.
 
 \subsection{Tests}
 
-Tests
+syn-read - Creates 10 childs and calls file\_read in each of them.The contents should match.
+syn-write - Creates 10 childs and calls file\_write in each of them.Then compares the results.
+syn-remove - Verifies that a file that has been deleted is still able to be readen or written to.
