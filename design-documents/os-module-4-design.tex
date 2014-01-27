@@ -72,6 +72,30 @@ We have to modify the functions:
     ...
   }
 
+  off_t
+  inode_write_at( struct inode* inode, const void* buffer, off_t size,
+		  off_t offset )
+  {
+    /* Get current lenght of the file
+    Calculate the difference between current length and offset + size
+    If less then 0, than add new sectors to the files
+    Fill the sectors with 0
+    Write data from buffer at offset 
+    Update the lenght of the las inode_disk*/
+  }
+
+  off_t
+  inode_read_at( struct inode* inode, void* buffer, off_t size,
+		 off_t offset )
+  {
+    /* Get current length of the file
+      Find if the offset is greater and current length
+      If true then return 0
+      Otherwise add data in buffer until reach EOF
+      or until written bytes equals with size.
+    */
+  }
+
 \end{lstlisting}
 
 
