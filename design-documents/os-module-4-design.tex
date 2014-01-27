@@ -18,7 +18,7 @@ We have to modify the structure:
   {
     ...
     block_sector_t next_sector; /* we store the address of the next sector */
-    uint32_t unused[124]	      /* we modify the size of the array so that the size of inode_disk is still 
+    uint32_t unused[124]	/* we modify the size of the array so that the size of inode_disk is still 
 				BLOCK_SECTOR_SIZE */
   }
 
@@ -191,13 +191,16 @@ We have to create the following methods:
 
 \subsection{Functionality}
 
-Functionality
+When it tries to seak after the end of file, the method inode\_read\_at shouldn't break and let the process to read
+at that position. This type of operation should not extend the size of the file. But when it tries to write to a postion
+that is pas EOF, than the file is extended to that position plus the number of bytes written. We extended the file with
+( offset + bytesWritte - file\_length ) / BLOCK\_SECTOR\_SIZE sectors. These blocks contains only zeros. And also we have to
+update the length of the file.
   
 
 \subsection{Design Decisions}
 
-Design Decisions
-  
+We don't store any information regarding the type of the sector in the inode\_disk. We store this information in dir\_entry.
 
 \subsection{Tests}
 
