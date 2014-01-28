@@ -358,50 +358,184 @@ We chose to make the distinction between a file and a folder in the dir\_entry s
 
 Storing the is\_file flag in both the disk\_inode and dir\_entry could lead to a desynchronization between the two, but would allow the operating system to interpret the information represented by the inode. But since this information is used in a context dependent fashion, the type of content represented by the inode should already be known, so storing this information inside the inode would most likely be useless.
 
-\subsection{Tests}
-
-Tests
 
 \section{Buffer Cache}
 \subsection{Initial Functionality}
-
-Initial Functionality
+Implement a caching mechanism for blocks. Read and write operations would go through this cache. There must be an eviction mechanism if the cache is full.
+There will be a thread that will write periodically the cache on the physical device.
   
 
 \subsection{Data Structures and Functions}
-  
-Data Structures and Functions
+\begin{lstlisting}
+int const block_size_in_sectors = 4;
+int const cache_size_in_sectors = 64;
+int const sector_size = 512;
+int const cache_size_in_blocks = cache_size_in_sectors /  block_size_in_sectors;
+
+struct block {
+	char data[sector_size * block_size_in_sectors]; 
+};
+
+struct block_supl {
+	bool present;
+	bool accessed;
+	bool dirty;
+	bool pinned; //or a mutex true while there is a block operation
+	int sector_start;
+	int block_start;
+};
+
+struct buffer_cache {
+	struct	block cache[cache_size_in_blocks]; 
+	struct block_supl cache_aux[cache_size_in_blocks]; // or a list
+};
+
+//public interface
+void write_block(int  block_address, void *buffer);
+void read_block(int  block_address, void *buffer);
+void dump_cache(); //dumps all the blocks on the hdd
+
+//internal
+int get_block_cached_index(int block_address); //return the  
+  //block_index_in_cache of the block, 
+  //if the block is not in cache returns -1
+int evict(int  block_index_in_cache); //evicts a block and returns the  
+  //block_index_in_cache of the freed block.. It may writeback data.
+int lru(); // returns a single index used by evict...
+int read_ahead_asynch(int block_adress); //will do a read ahead asynchronously. 
+  //This will append a request to a list of request in the cache thread 
+  //(the one which is responsible with write periodically)
+
+void dump_block(int block_index_in_cache);
+\end{lstlisting}
+
 
 \subsection{Functionality}
-  
-Functionality
+All read/write operations except swapping, mmap, (virtual memory ones) will go through here.  
+
+
+\paragraph {write\_block}
+\begin{enumerate}
+	\item check if the block is in the cache... if yes override the data
+	\item if not in the cache... evict one block and write the data in the block\_slot
+\end{enumerate}
+
+\paragraph {read\_block}
+\begin{enumerate}
+	\item check if the block is in the cache, if yes, return it
+	\item if not evict, and read from PH device
+\end{enumerate}
+
+\paragraph {dump\_cache}
+\begin{enumerate}
+	\item for each block in the cache
+	\item dump\_block(block)
+\end{enumerate}
+
+
+\paragraph {get\_block\_cached\_index}
+\begin{enumerate}
+	\item will search in the cache\_aux for the corresponding index in the cache.
+\end{enumerate}
+
+\paragraph {evict}
+\begin{enumerate}
+	\item lru returns a (a block\_index)
+	\item dump\_block(block)
+\end{enumerate}
+
+\paragraph {lru}
+\begin{enumerate}
+	\item determines the next block to be evicted, it can be an empty block, so dump block will not write anything
+\end{enumerate}
+
+\paragraph {dump\_block:}
+\begin{enumerate}
+	\item if the block has "present" and dirty flag set will write it on the hdd.
+\end{enumerate}
+
+All the global data structure writes / reads all synchronized with lock. It could be global or more granular (in a cache block).
+
+There will be a thread with alarm clock which will dump all the blocks periodically.  (the buffer cache thread)
+There will also be a dump in  filesys\_done() call.
+
+
+
 
 \subsection{Design Decisions}
-  
-Design Decisions
+
+We tried to maximize the transparency of the caching, so that the read/write functions user doesn't know anything about it. By synchronizing the global data access we enforce the multithreaded safety.
+
 
 \subsection{Tests}
 
-Push to a new Page
 
 \section{Synchronization}
 \subsection{Initial Functionality}
 
-Initial Functionality
+At the beginning of this project, our filesystem needs external synchronization to function properly. Actually at this moment only on process can be in filesys code at a time whether this condition is needed or not. We want to implement a finer-grained synchronization, that is internal (a. k. a. the kernel doesn't have to worry about synchronizing access to files).
   
 
 \subsection{Data Structures and Functions}
   
-Data Structures and Functions
+\begin{lstlisting}
+  // in memory inode 
+  struct inode 
+  {
+    ...
+    /* a lock / inode used for directory/files
+       operations synchronizations. This is 
+       stored in in-memory inode. Should not be
+       saved on the disk. */
+    struct lock inode_lock; 
+  }
+
+  //in cache
+  struct cache_block
+  {
+    ... 
+    // a lock / block 
+    struct lock block_lock;
+  }
+
+\end{lstlisting}
 
 \subsection{Functionality}
   
-Functionality
+\begin{lstlisting}
+  // In directory.c
+  dir_operation
+      lock_acquire(dir->inode.inode_lock);
+      ...
+      lock_release(dir->inode.inode_lock);
+  dir_operation_end
+
+  inode_write_at()
+    if( offset < size )
+      lock_acquire(inode.inode_lock);
+      extend_file() // do not update file's length yet
+      block_write
+      inode.length = new_length;
+      lock_release(inode.inode_lock);
+    
+  //In cache.c:
+  cache_operation
+      lock_acquire(dir->inode.inode_lock);
+      ...
+      lock_release(dir->inode.inode_lock);
+  cache_operation_end
+
+\end{lstlisting}
 
 \subsection{Design Decisions}
   
-Design Decisions
+We chosed to keep an lock per inode because the simplicity of the solution. This also respects the requirements that operations on different entities should be done in parallel, while operations on the same entity may wait one after another. The lock has to be kept in the inode and not in the file or dir structure because the file and dir structure are allocated for each process separately, even if they might point to the same inode.
+Synchronization code is put in directories and not in the inodes, because, there are operations on inodes which should be able to happen concurently like reading/writing from/to a file.
+
+We used the same rationale for caching synchronization.
 
 \subsection{Tests}
 
-Tests
+syn-read - Creates 10 children and calls file\_read in each of them.The contents should match.
+syn-write - Creates 10 children and calls file\_write in each of them.Then compares the results.
+syn-remove - Verifies that a file that has been deleted is still able to be readen or written to.
