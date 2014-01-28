@@ -9,6 +9,7 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+#define LAST_SECTOR 0x00
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
@@ -16,9 +17,10 @@ struct inode_disk
 {
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
-  
+    block_sector_t next_sector;         /* Address of the next inode_disk sector */
+    uint32_t file_total_size;           /* total size of the file */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
+    uint32_t unused[123];               /* Not used. */
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -343,4 +345,69 @@ off_t
 inode_length (const struct inode *inode)
 {
   return inode->data.length;
+}
+
+/* Returns the n sector */
+static block_sector_t 
+get_sector( struct inode_disk* disk_inode, int n )
+{
+  struct inode_disk* aux = disk_inode;
+
+  while ( aux->length / BLOCK_SECTOR_SIZE < n )
+  {
+    n -= aux->length / BLOCK_SECTOR_SIZE;
+    if ( aux->next_sector != LAST_SECTOR )
+    {
+      block_read( fs_device, aux->next_sector, aux );  
+    }
+    else // In case it tries to get sector which is greater
+    {    // than the number of sectors in the file
+      return LAST_SECTOR;
+    }
+  }
+
+  return aux->start + n;
+}
+
+/* Returns the size of the file */
+static off_t 
+get_size ( struct inode_disk* disk_inode )
+{
+  off_t size = 0;
+  struct inode_disk* aux = disk_inode;
+  size += aux->length;
+
+  while ( aux->next_sector != LAST_SECTOR )
+  {
+      block_read( fs_device, aux->next_sector, aux );
+      size += aux->length;
+  }
+
+  return size;
+}
+
+/* Get last sector */
+static block_sector_t
+get_last_sector( struct inode_disk* disk_inode )
+{
+  return get_sector( disk_inode, disk_inode->file_total_size );
+}
+
+/* Get last inode_disk */
+static struct inode_disk*
+get_last_inode_disk( struct inode_disk* disk_inode )
+{
+  struct inode_disk* aux = disk_inode;
+  while ( aux->next_sector != LAST_SECTOR )
+  {
+    block_read( fs_device, aux->next_sector, aux );
+  }
+  return aux;
+}
+
+/* Get number of sectors in file */
+static size_t
+get_number_of_sectors( struct inode_disk* disk_inode )
+{
+  return disk_inode->file_total_size / BLOCK_SECTOR_SIZE;
 }
