@@ -387,7 +387,7 @@ struct block_supl {
 
 struct buffer_cache {
 	struct	block cache[cache_size_in_blocks]; 
-	struct block_supl cache_aux[cache_size_in_blocks]; // or a list
+	struct block_supl cache_aux[cache_size_in_blocks]; // or a list/hash table
 };
 
 //public interface
@@ -412,7 +412,6 @@ void dump_block(int block_index_in_cache);
 
 \subsection{Functionality}
 All read/write operations except swapping, mmap, (virtual memory ones) will go through here.  
-
 
 \paragraph {write\_block}
 \begin{enumerate}
@@ -458,8 +457,6 @@ All the global data structure writes / reads all synchronized with lock. It coul
 
 There will be a thread with alarm clock which will dump all the blocks periodically.  (the buffer cache thread)
 There will also be a dump in  filesys\_done() call.
-
-
 
 
 \subsection{Design Decisions}
