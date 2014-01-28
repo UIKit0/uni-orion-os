@@ -364,25 +364,95 @@ Tests
 
 \section{Buffer Cache}
 \subsection{Initial Functionality}
-
-Initial Functionality
+Implement a caching mechanism for blocks. Read and write operations would go through this cache. There must be an eviction mechanism if the cache is full.
+There will be a thread that will write periodically the cache on the physical device.
   
 
 \subsection{Data Structures and Functions}
-  
-Data Structures and Functions
+\begin{lstlisting}
+int const block_size_in_sectors = 4;
+int const cache_size_in_sectors = 64;
+int const sector_size = 512;
+int const cache_size_in_blocks = cache_size_in_sectors /  block_size_in_sectors;
+
+struct block {
+	char data[sector_size * block_size_in_sectors]; 
+};
+
+struct block_supl {
+	bool present;
+	bool accessed;
+	bool dirty;
+	bool pinned; //true while there is a block operation
+	int sector_start;
+	int block_start;
+};
+
+struct buffer_cache {
+	struct	block cache[cache_size_in_blocks]; 
+	struct block_supl cache_aux[cache_size_in_blocks]; // or a list/hash table
+};
+
+//public interface
+void write_block(int  block_address, void *buffer);
+void read_block(int  block_address, void *buffer);
+void dump_cache(); //dumps all the blocks on the hdd
+
+//internal
+int get_block_cached_index(int block_address); //return the  block_index_in_cache of the block, if the block is not in cache returns -1
+int evict(int  block_index_in_cache); //evicts a block and returns the  block_index_in_cache of the freed block.. It may writeback data.
+int lru(); // returns a single index used by evict...
+int read_ahead_asynch(int block_adress); //will do a read ahead asynchronously. 
+This will append a request to a list of request in the cache thread (the one which is responsible with write periodically)
+
+void dump_block(int block_index_in_cache);
+\end{lstlisting}
+
 
 \subsection{Functionality}
-  
-Functionality
+All read/write operations except swapping, mmap, (virtual memory ones) will go through here.  
+
+write\_block:
+	check if the block is in the cache... if yes override the data
+	if not in the cache... evict one block and write the data in the block\_slot
+
+read\_block:
+	check if the block is in the cache, if yes, return it
+	if not evict, and read from PH device
+
+dump\_cache:
+	for each block in the cache
+		dump\_block(block)
+
+get\_block\_cached\_index:
+	will search in the cache\_aux for the corresponding index in the cache.
+
+evict: 
+	lru returns a (a block\_index)
+	dump\_block()
+
+lru: determines the next block to be evicted, it can be an empty block, so dump block will not write anything
+
+
+dump\_block:
+	if the block has "present" flag set will write it on the hdd.
+
+
+All the global data structure writes / reads all synchronized with lock. It could be global or more granular (in a cache block).
+
+There will be a thread with alarm clock which will dump all the blocks periodically.  (aka the buffer cache thread)
+There will also be a dump in  filesys\_done() call.
+
+
+
 
 \subsection{Design Decisions}
-  
-Design Decisions
+
+We tried to maximize the transparency of the caching, so that the read/write functions user doesn't know anything about it. By synchronizing the global data access we enforce the multithreaded safety.
+
 
 \subsection{Tests}
 
-Push to a new Page
 
 \section{Synchronization}
 \subsection{Initial Functionality}
@@ -450,6 +520,6 @@ We used the same rationale for caching synchronization.
 
 \subsection{Tests}
 
-syn-read - Creates 10 childs and calls file\_read in each of them.The contents should match.
-syn-write - Creates 10 childs and calls file\_write in each of them.Then compares the results.
+syn-read - Creates 10 children and calls file\_read in each of them.The contents should match.
+syn-write - Creates 10 children and calls file\_write in each of them.Then compares the results.
 syn-remove - Verifies that a file that has been deleted is still able to be readen or written to.
