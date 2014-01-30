@@ -118,7 +118,7 @@ frame* ft_alloc_frame(bool zero_page, bool writable, void *page_u_addr)
 
 		//for debugging assert
 		//check if frame table info is consistent with page table info
-		ASSERT(pagedir_get_page(f->pagedir, f->upage) == f->kpage);
+		//ASSERT(pagedir_get_page(f->pagedir, f->upage) == f->kpage);
 
 		if(f == NULL)
 			return NULL;
@@ -182,7 +182,6 @@ frame *ft_get_lru_frame(void)
 		}
 
 		frame *f = list_entry(lru_cursor, frame, list_elem);
-		//printf("Checking frame (upage, kpage, pagedir, processid): %x, %x, %x, %u\n", f->upage, f->kpage, f->pagedir, f->process->pid);
 		if (!pagedir_is_accessed(f->pagedir, f->upage) && !f->pinned) {
 			f->pinned = true;
 			lock_release(&ft_lock);
