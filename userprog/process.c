@@ -382,6 +382,7 @@ process_exit (void)
 
 #ifdef VM
   //supl_pt_free(&(current->supl_pt));
+
 #endif
 
   if(current->exe_file != NULL) {    
@@ -625,8 +626,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 /* load() helpers. */
 
-static bool install_page (void *upage, void *kpage, bool writable);
-
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
 static bool
@@ -729,16 +728,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 }
 
 bool load_page_mm(struct file* fd, int ofs, uint8_t *upage) {
-  frame* frame = ft_alloc_frame(true, upage);  
+
+  frame* frame = ft_alloc_frame(true, true, upage);
   if(frame == NULL) {
     PANIC("Kernel panic - Insufficient memory");
   }
-
-  struct thread *crt_thread = thread_current();
-
-  pagedir_set_page(crt_thread->pagedir, upage, frame->kpage, true);
-  pagedir_set_present(crt_thread->pagedir, upage, true);
-  pagedir_set_dirty(crt_thread->pagedir, upage, false);
 
   filesys_lock();
   int beforeoff = file_tell(fd);
@@ -747,9 +741,9 @@ bool load_page_mm(struct file* fd, int ofs, uint8_t *upage) {
   int bytesToRead = filesize < PGSIZE + ofs ? filesize - ofs : PGSIZE;
   file_read(fd, frame->kpage, bytesToRead);
   file_seek(fd, beforeoff);
-  filesys_unlock(); 
+  filesys_unlock();
 
-  //printf("bytesToRead: %d\nupage: %p\nkpage: %p\n", bytesToRead, upage, frame->kpage);
+  pagedir_set_dirty(frame->pagedir, upage, false);
 
   return true;  
 }
@@ -772,10 +766,12 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 		uint32_t read_bytes, uint32_t zero_bytes, bool writable,
 		int swap_slot_no UNUSED)
 {
+
 	uint8_t *kpage;
 
 #ifdef VM
-	frame* frame = ft_alloc_frame(false, upage);
+	frame* frame = ft_alloc_frame(false, writable, upage);
+
 	if(frame == NULL)
 	{
 		PANIC("Kernel panic - Insufficient memory");
@@ -791,14 +787,11 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 #ifdef VM
 	if(swap_slot_no >= 0)
 	{
-		//printf("[SWAP] swaping in user page %p \n", upage);
-		frame->pinned = true;
 		swap_in(kpage, swap_slot_no);
-		frame->pinned = false;
-		pagedir_set_page(thread_current()->pagedir, upage, kpage, writable);
-		pagedir_set_present(thread_current()->pagedir, upage, true);
+
 		//if loaded from swap, surely it's not in the file => it's dirty
-		pagedir_set_dirty(thread_current()->pagedir, upage, true);
+		pagedir_set_dirty(frame->pagedir, upage, true);
+
 		return true;
 	}
 #endif
@@ -806,12 +799,10 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 	//advance to offset - might be redundant when VM is not implemented, but is safer
 	if(file != NULL)
 	{
+		filesys_lock();
 		file_seek(file, ofs);
 
 		/* Load this page. */
-#ifdef VM
-		frame->pinned = true;
-#endif
 		if (file_read(file, kpage, read_bytes) != (int) read_bytes)
 		{
 	#ifdef VM
@@ -819,34 +810,23 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 	#else
 			palloc_free_page(kpage);
 	#endif
+			filesys_unlock();
 			return false;
 		}
+		filesys_unlock();
+
 	}
 
 	memset(kpage + read_bytes, 0, zero_bytes);
-#ifdef VM
-		frame->pinned = false;
-#endif
 
-#ifdef VM
-	/* Set the page present if it is in the process's adress space*/
-	struct thread *crt_thread = thread_current();
-	if(pagedir_get_page(crt_thread->pagedir, upage) != NULL)
-	{
-		pagedir_set_present(crt_thread->pagedir, upage, true);
-		return true;
-	}
-#endif
+  #ifndef VM
 	/* Add the page to the process's address space. */
 	if (!install_page(upage, kpage, writable))
 	{
-#ifdef VM
-		ft_free_frame(frame);
-#else
 		palloc_free_page(kpage);
-#endif
 		return false;
 	}
+  #endif
 
 	return true;
 }
@@ -926,27 +906,6 @@ setup_stack (void **esp)
   }
   return false;
 }
-
-/* Adds a mapping from user virtual address UPAGE to kernel
-   virtual address KPAGE to the page table.
-   If WRITABLE is true, the user process may modify the page;
-   otherwise, it is read-only.
-   UPAGE must not already be mapped.
-   KPAGE should probably be a page obtained from the user pool
-   with palloc_get_page().
-   Returns true on success, false if UPAGE is already mapped or
-   if memory allocation fails. */
-static bool
-install_page (void *upage, void *kpage, bool writable)
-{
-  struct thread *t = thread_current ();
-
-  /* Verify that there's not already a page at that virtual
-     address, then map our page there. */
-  return (pagedir_get_page (t->pagedir, upage) == NULL
-          && pagedir_set_page (t->pagedir, upage, kpage, writable));
-}
-
 
 void filesys_lock(void) {
   lock_acquire(&file_sys_lock);  

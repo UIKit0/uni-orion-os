@@ -10,28 +10,40 @@
 #include "userprog/syscall.h"
 #include "vm/page.h"
 #include "vm/swap.h"
+#include "threads/pte.h"
 
 
 #include <string.h>
 
 /* The frame table */
 static struct list frame_table;
+static struct list_elem *e = NULL;
 
 /* A lock for frame_table synchronized access*/
 struct lock ft_lock;
 
+static bool install_page (void *pagedir, void *upage, void *kpage, bool writable);
+
 static frame* frame_lookup (void *kpage)
 {
+	lock_acquire(&ft_lock);
 	struct list_elem *e = list_head (&frame_table);
 	while ((e = list_next (e)) != list_end (&frame_table))
 	{
 		frame *f = list_entry(e, frame, list_elem);
 		if(f->kpage == kpage)
 		{
+			lock_release(&ft_lock);
 			return f;
 		}
 	}
+	lock_release(&ft_lock);
 	return NULL;
+}
+
+void* ft_get_frame(void *kpage)
+{
+	return frame_lookup(kpage);
 }
 
 /**
@@ -48,24 +60,32 @@ void ft_init(void)
  */
 void ft_insert_frame(frame *f)
 {
-	//lock_acquire(&ft_lock);
-	f->pinned = true;
+	ASSERT(ft_get_frame(f->kpage) == NULL);
+
+	lock_acquire(&ft_lock);
 	list_push_back(&frame_table, &(f->list_elem));
-	f->pinned = false;
-	//lock_release(&ft_lock);
+	lock_release(&ft_lock);
 }
 
 /**
  * Removes the frame given from the
  * frame_table and frees the space
  * occupied by the frame table entry.
+ * Frame needs to be pinned when
+ * calling this function
  */
-void ft_remove_frame(frame* frame)
+void ft_remove_frame(frame* toRemoveFrame)
 {
+	ASSERT(toRemoveFrame->pinned == true);
+
 	lock_acquire(&ft_lock);
-	frame->pinned = true;
-	list_remove(&(frame->list_elem));
-	free(frame);
+
+	frame *lru_cursor = list_entry(e, frame, list_elem);
+	if(toRemoveFrame == lru_cursor) {
+		e = list_next(e);
+	}
+	list_remove(&(toRemoveFrame->list_elem));
+	free(toRemoveFrame);
 	lock_release(&ft_lock);
 }
 
@@ -78,62 +98,72 @@ void ft_remove_frame(frame* frame)
  * is unused and no frame can be evicted
  * it returns NULL. 
  */
-frame* ft_alloc_frame(bool zero_page, void *page_u_addr)
+frame* ft_alloc_frame(bool zero_page, bool writable, void *page_u_addr)
 {
-	lock_acquire(&ft_lock);
+
+	ASSERT(is_user_vaddr(page_u_addr));
+
 	enum palloc_flags flags = PAL_USER | (zero_page ? PAL_ZERO : 0);
 
 	void *page_k_addr = palloc_get_page(flags);
+	frame *f;
+
 	if (page_k_addr != NULL ) {
-		frame *f = (frame *) malloc(sizeof(frame));
+		f = (frame *) malloc(sizeof(frame));
 		f->kpage = page_k_addr;
-		f->upage = page_u_addr;
-		f->pinned = false;
+		f->pinned = true;
 		ft_insert_frame(f);
-		lock_release(&ft_lock);
-		return f;
 	} else {
-		frame *lru_f = ft_get_lru_frame();
-		if (lru_f != NULL )
+		f = ft_get_lru_frame();
+
+		//for debugging assert
+		//check if frame table info is consistent with page table info
+		ASSERT(pagedir_get_page(f->pagedir, f->upage) == f->kpage);
+
+		if(f == NULL)
+			return NULL;
+
+		if(!ft_evict_frame(f))
 		{
-			lru_f->pinned = true;
-
-			if(!ft_evict_frame(lru_f))
-			{
-				lock_release(&ft_lock);
-				return NULL;
-			}
-
-			lru_f->upage = page_u_addr;
-			if (zero_page)
-				memset(lru_f->kpage, 0, PGSIZE );
-
-			lru_f->pinned = false;
+			return NULL;
 		}
-		lock_release(&ft_lock);
-		return lru_f;
+
+		if (zero_page)
+			memset(f->kpage, 0, PGSIZE );
+
 	}
 
-	lock_release(&ft_lock);
-	return NULL ; //not reachable
+	f->upage = page_u_addr;
+	f->pagedir = thread_current()->pagedir;
+	f->process = process_current();
+
+	if (!install_page(f->pagedir, f->upage, f->kpage, writable))
+	{
+		ft_free_frame(f);
+		return false;
+	}
+
+	f->pinned = false;
+
+	return f;
 }
 
 void ft_free_frame(frame *f)
 {
-	lock_acquire(&ft_lock);
-	pagedir_clear_page(thread_current()->pagedir, f->upage);
+	ASSERT(f->pinned == true);
+
+	pagedir_clear_page(f->pagedir, f->upage);
 	palloc_free_page(f->kpage);
 	ft_remove_frame(f);
-	lock_release(&ft_lock);
 }
 
 /**
  * Finds the least recently used frame
+ * and pins it for eviction
  */
 frame *ft_get_lru_frame(void)
 {
-	// lock_acquire(&ft_lock);
-	static struct list_elem *e = NULL;
+	lock_acquire(&ft_lock);
 
 	if (e == NULL) {
 		e = list_head(&frame_table);
@@ -149,11 +179,12 @@ frame *ft_get_lru_frame(void)
 		}
 
 		frame *f = list_entry(e, frame, list_elem);
-		if (!pagedir_is_accessed(thread_current()->pagedir, f->upage) && !f->pinned) {
-			// lock_release(&ft_lock);
+		if (!pagedir_is_accessed(f->pagedir, f->upage) && !f->pinned) {
+			f->pinned = true;
+			lock_release(&ft_lock);
 			return f;
 		} else {
-			pagedir_set_accessed(thread_current()->pagedir, f->upage, false);
+			pagedir_set_accessed(f->pagedir, f->upage, false);
 		}
 	}
 }
@@ -168,11 +199,12 @@ frame *ft_get_lru_frame(void)
  */
 bool ft_evict_frame(frame* frame)
 {
-	// lock_acquire(&ft_lock);
-	struct thread *t = thread_current();
+	ASSERT(frame->pinned == true);
 
-	struct supl_pte *pte = supl_pt_get_spte(process_current(), frame->upage);
+	bool dirty = pagedir_is_dirty(frame->pagedir, frame->upage);
+	pagedir_clear_page(frame->pagedir, frame->upage);
 
+	struct supl_pte *pte = supl_pt_get_spte(frame->process, frame->upage);
 
 	if(pte->swap_slot_no == -2) {
 		mapped_file *mfile = get_mapped_file_from_page_pointer(pte->virt_page_addr);
@@ -180,47 +212,59 @@ bool ft_evict_frame(frame* frame)
 			save_page_mm(mfile->fd, pte->virt_page_addr - mfile->user_provided_location, frame->kpage);
 		}
 	}
-	else if( pagedir_is_dirty(t->pagedir, frame->upage) || pte->page_read_bytes == 0 )
+	else if( dirty || pte->page_read_bytes == 0 )
 	{
-		//frame->pinned = true;
 		pte->swap_slot_no = swap_out(frame->kpage);
-		//frame->pinned = false;
 
 		if (pte->swap_slot_no < 0)
 		{
-			// lock_release(&ft_lock);
 			return false;
 		}
 	}
 
-	pagedir_clear_page(t->pagedir, frame->upage);
-
-	// lock_release(&ft_lock);
 	return true;
 }
 
 /**
- * Pins the frame, namely disqualifies it from
- * being evicted by the LRU algorithm
+ * This function pins a frame atomically.
  */
-void ft_pin_frame(const void *uaddr)
+bool ft_atomic_pin_frame(frame *f)
 {
+	if(f->pinned == true)
+	{
+		return false;
+	}
+
 	lock_acquire(&ft_lock);
-	void *kpage = pagedir_get_page(thread_current()->pagedir, uaddr);
-	frame *f = frame_lookup(kpage);
-	f->pinned = false;
+	f->pinned = true;
 	lock_release(&ft_lock);
+
+	return true;
 }
 
 /**
  * Unpins the frame, making it available to
  * be evicted by the LRU algorithm
  */
-void ft_unpin_frame(const void *uaddr)
+void ft_unpin_frame(frame *f)
 {
-	lock_acquire(&ft_lock);
-	void *kpage = pagedir_get_page(thread_current()->pagedir, uaddr);
-	frame *f = frame_lookup(kpage);
 	f->pinned = false;
-	lock_release(&ft_lock);
+}
+
+/* Adds a mapping from user virtual address UPAGE to kernel
+   virtual address KPAGE to the page table.
+   If WRITABLE is true, the user process may modify the page;
+   otherwise, it is read-only.
+   UPAGE must not already be mapped.
+   KPAGE should probably be a page obtained from the user pool
+   with palloc_get_page().
+   Returns true on success, false if UPAGE is already mapped or
+   if memory allocation fails. */
+static bool
+install_page (void *pagedir, void *upage, void *kpage, bool writable)
+{
+  /* Verify that there's not already a page at that virtual
+     address, then map our page there. */
+  return (pagedir_get_page (pagedir, upage) == NULL
+          && pagedir_set_page (pagedir, upage, kpage, writable));
 }

@@ -5,6 +5,7 @@
 #include "threads/init.h"
 #include "threads/pte.h"
 #include "threads/palloc.h"
+#include "vm/frame.h"
 
 static uint32_t *active_pd (void);
 static void invalidate_pagedir (uint32_t *);
@@ -40,11 +41,47 @@ pagedir_destroy (uint32_t *pd)
         uint32_t *pte;
         
         for (pte = pt; pte < pt + PGSIZE / sizeof *pte; pte++)
-          if (*pte & PTE_P) 
-            palloc_free_page (pte_get_page (*pte));
+        {
+          if(!(*pte & PTE_P))
+        	  continue;
+
+          frame *f = ft_get_frame(pte_get_page(*pte));
+          //the check that page is present has to be done again after frame
+          //is pinned, in order to be sure that nobody evicted it before
+          //it was pinned.
+          if (f != NULL && ft_atomic_pin_frame(f) && (*pte & PTE_P)) {
+        		ft_free_frame(f);
+          }
+          else {
+        	  ft_unpin_frame(f);
+          }
+        }
         palloc_free_page (pt);
       }
   palloc_free_page (pd);
+}
+
+/* Checks if a kernel page is present in pagedir. */
+bool
+pagedir_is_present_kpage(uint32_t *pd, void *kpage)
+{
+  uint32_t *pde;
+
+  if (pd == NULL)
+    return false;
+
+  ASSERT (pd != init_page_dir);
+  for (pde = pd; pde < pd + pd_no (PHYS_BASE); pde++)
+    if (*pde & PTE_P)
+      {
+        uint32_t *pt = pde_get_pt (*pde);
+        uint32_t *pte;
+
+        for (pte = pt; pte < pt + PGSIZE / sizeof *pte; pte++)
+          if (*pte & PTE_P)
+            if(pte_get_page (*pte) == kpage)
+            	return true;
+      }
 }
 
 /* Returns the address of the page table entry for virtual
