@@ -17,7 +17,7 @@
 
 /* The frame table */
 static struct list frame_table;
-static struct list_elem *e = NULL;
+static struct list_elem *lru_cursor = NULL;
 
 /* A lock for frame_table synchronized access*/
 struct lock ft_lock;
@@ -80,9 +80,9 @@ void ft_remove_frame(frame* toRemoveFrame)
 
 	lock_acquire(&ft_lock);
 
-	frame *lru_cursor = list_entry(e, frame, list_elem);
-	if(toRemoveFrame == lru_cursor) {
-		e = list_next(e);
+	frame *lru_cursor_frame = list_entry(lru_cursor, frame, list_elem);
+	if(toRemoveFrame == lru_cursor_frame) {
+		lru_cursor = list_next(lru_cursor);
 	}
 	list_remove(&(toRemoveFrame->list_elem));
 	free(toRemoveFrame);
@@ -136,11 +136,13 @@ frame* ft_alloc_frame(bool zero_page, bool writable, void *page_u_addr)
 	f->upage = page_u_addr;
 	f->pagedir = thread_current()->pagedir;
 	f->process = process_current();
-
+	//printf("Frame %x given to process %d\n", f->kpage, f->process->pid);
 	if (!install_page(f->pagedir, f->upage, f->kpage, writable))
 	{
-		ft_free_frame(f);
-		return false;
+		void *kpage = f->kpage;
+		ft_remove_frame(f);
+		palloc_free_page(kpage);
+		return NULL;
 	}
 
 	f->pinned = false;
@@ -153,8 +155,9 @@ void ft_free_frame(frame *f)
 	ASSERT(f->pinned == true);
 
 	pagedir_clear_page(f->pagedir, f->upage);
-	palloc_free_page(f->kpage);
+	void *kpage = f->kpage;
 	ft_remove_frame(f);
+	palloc_free_page(kpage);
 }
 
 /**
@@ -165,20 +168,21 @@ frame *ft_get_lru_frame(void)
 {
 	lock_acquire(&ft_lock);
 
-	if (e == NULL) {
-		e = list_head(&frame_table);
+	if (lru_cursor == NULL) {
+		lru_cursor = list_head(&frame_table);
 	}
 
 	while (true)
 	{
-		e = list_next(e);
+		lru_cursor = list_next(lru_cursor);
 
 		// restart from the beginning
-		if (e == list_end(&frame_table)) {
-			e = list_next(list_head(&frame_table));
+		if (lru_cursor == list_end(&frame_table)) {
+			lru_cursor = list_next(list_head(&frame_table));
 		}
 
-		frame *f = list_entry(e, frame, list_elem);
+		frame *f = list_entry(lru_cursor, frame, list_elem);
+		//printf("Checking frame (upage, kpage, pagedir, processid): %x, %x, %x, %u\n", f->upage, f->kpage, f->pagedir, f->process->pid);
 		if (!pagedir_is_accessed(f->pagedir, f->upage) && !f->pinned) {
 			f->pinned = true;
 			lock_release(&ft_lock);
@@ -230,12 +234,10 @@ bool ft_evict_frame(frame* frame)
  */
 bool ft_atomic_pin_frame(frame *f)
 {
-	if(f->pinned == true)
-	{
-		return false;
-	}
+	while(f->pinned == true);
 
 	lock_acquire(&ft_lock);
+	ASSERT(f->pinned != true);
 	f->pinned = true;
 	lock_release(&ft_lock);
 

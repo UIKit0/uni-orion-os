@@ -561,7 +561,7 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 		void *kpage = pagedir_get_page (pd, addr);
 		if(kpage && pagedir_is_dirty(pd, addr)) {
 			save_page_mm(fl->fd, addr - (char*)fl->user_provided_location, kpage);
-			pagedir_clear_page(pd, addr);
+			//if(ft_free_frame(ft_get_page(kpage));
 		}
 		supl_pt_remove_spte(pr_crt, addr);
 		addr += PGSIZE;
