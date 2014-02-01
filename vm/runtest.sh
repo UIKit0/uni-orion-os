@@ -6,10 +6,12 @@ usage()
     echo "Usage: $0 [OPTIONS] test_name"
     echo "Options: "
     echo "     -v | --verbose (verbose mode)"
+    echo "     -d | --gdb (use debugger)"
     echo "     -h | --help (this message)"
 }
 
 VERBOSE_OPT=""
+PINTOS_OPTS="PINTOSOPTS="
 
 while :
 do
@@ -20,6 +22,10 @@ do
 	    ;;
 	-v | --verbose)
 	    VERBOSE_OPT="VERBOSE=1"
+	    shift
+	    ;;
+	-d | --gdb)
+	    PINTOS_OPTS+="--gdb "
 	    shift
 	    ;;
 	--)
@@ -54,5 +60,5 @@ if [ ! "$BINARY" ]; then
     exit
 fi
  
-rm "`dirname $BINARY`/$test_name"
-make "`dirname $BINARY`/$test_name.result" $VERBOSE_OPT 
+rm "`dirname $BINARY`/$test_name.output"
+make "`dirname $BINARY`/$test_name.result" $PINTOS_OPTS $VERBOSE_OPT 
