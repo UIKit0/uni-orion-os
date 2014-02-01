@@ -1,2 +1,7 @@
-pintos -v -k -T 60 --bochs --filesys-size=2 -p ../tests/vm/sample.txt -a sample.txt -p build/tests/vm/$1 -a $1 --swap-size=4 -- -q  -f run $1 < /dev/null 2> $1.errors > $1.output
 
+#!/bin/sh -x
+
+make
+FILE_LIST=`find ./build/tests/ -name $1.o`
+rm "`dirname $FILE_LIST `/$1"
+make "`dirname $FILE_LIST `/$1.result"
