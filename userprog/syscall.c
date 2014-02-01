@@ -32,10 +32,15 @@ static void syscall_write(struct intr_frame *f);
 static void syscall_seek(struct intr_frame *f);
 static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
+
+#ifdef VM
 static void syscall_mmap(struct intr_frame *f);
 static void syscall_munmap(struct intr_frame *f);
 
 static struct list_elem* mummap_wrapped(mapped_file *fl);
+#endif
+
+
 
 /* Initializes the syscall handler. */
 void syscall_init (void) {
@@ -164,6 +169,7 @@ struct file *fd_get_file(int fd) {
 	return NULL;
 }
 
+#ifdef VM
 static mapped_file *mfd_get_file(int mfd) {
 	struct list* file_descriptors = &process_current()->mmap_list;
 	struct list_elem *e;
@@ -175,7 +181,9 @@ static mapped_file *mfd_get_file(int mfd) {
 	}
 	return NULL;
 }
+#endif
 
+#ifdef VM
 static struct list_elem* mf_remove_file(mapped_file *mf) {
 	if(mf == NULL)
 		return NULL;
@@ -184,7 +192,9 @@ static struct list_elem* mf_remove_file(mapped_file *mf) {
 	free(mf);
 	return e;
 }
+#endif
 
+#ifdef VM
 static mapid_t mfd_create(void) {
 	struct list* file_descriptors = &process_current()->mmap_list;
 	struct list_elem *e;
@@ -197,6 +207,7 @@ static mapid_t mfd_create(void) {
 	}
 	return max_fd + 1;
 }
+#endif
 
 /*
  *	Returns the list element that links this file descriptor;
@@ -450,8 +461,11 @@ void syscall_exec(struct intr_frame *f) {
 	f->eax = process_execute(buf);
 }
 
+#ifdef VM
 static supl_pte* gPages[1024];
+#endif
 
+#ifdef VM
 static void syscall_mmap(struct intr_frame *f) {
 	f->eax = -1;
 	process_t *p = process_current();
@@ -474,7 +488,7 @@ static void syscall_mmap(struct intr_frame *f) {
 	filesys_lock();
 	int filesize = file_length(fl);
 	filesys_unlock();
-	
+
 	int zeroOrOne = filesize % PGSIZE ? 1 : 0;
 	int pageNumber = filesize / PGSIZE + zeroOrOne;
 	int pageIndex = 0;
@@ -488,7 +502,7 @@ static void syscall_mmap(struct intr_frame *f) {
 		spte->virt_page_addr = addr;
 		spte->swap_slot_no = -2;
 		spte->writable = true;
-		spte->page_read_bytes = 0; //this page will be always written to swap
+		spte->page_read_bytes = 0;
 		gPages[pageIndex] = spte;
 		if(supl_pt_get_spte(p, addr) != NULL) {
 			--pageIndex;
@@ -500,7 +514,7 @@ static void syscall_mmap(struct intr_frame *f) {
 			return;			
 		}
 		supl_pt_insert(&(p->supl_pt), spte);
-		pagedir_set_present(th->pagedir, addr, false);
+		//pagedir_set_present(th->pagedir, addr, false);
 		addr += PGSIZE;
 		pageIndex++;
 	}
@@ -520,7 +534,9 @@ static void syscall_mmap(struct intr_frame *f) {
 	get_mapped_file_from_page_pointer(addrStart);
 	f->eax = mf->id;
 }
+#endif
 
+#ifdef VM
 mapped_file *get_mapped_file_from_page_pointer(void *pagePointer) {	
 	process_t *cp = process_current();
 	struct list* file_descriptors = &cp->mmap_list;
@@ -533,7 +549,9 @@ mapped_file *get_mapped_file_from_page_pointer(void *pagePointer) {
 	}
 	return NULL;
 }
+#endif
 
+#ifdef VM
 void munmap_all(void) {
 	process_t *cp = process_current();
 	struct list* file_descriptors = &cp->mmap_list;
@@ -543,7 +561,10 @@ void munmap_all(void) {
 		e = mummap_wrapped(mmentry);		
 	}	
 }
+#endif
 
+
+#ifdef VM
 static struct list_elem* mummap_wrapped(mapped_file *fl) {
 	if(fl == NULL) {
 		return NULL;
@@ -558,10 +579,10 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 	process_t *pr_crt = process_current();
 
 	while(addr < (char*)fl->user_provided_location + fl->file_size) {
+
 		void *kpage = pagedir_get_page (pd, addr);
 		if(kpage && pagedir_is_dirty(pd, addr)) {
 			save_page_mm(fl->fd, addr - (char*)fl->user_provided_location, kpage);
-			//if(ft_free_frame(ft_get_page(kpage));
 		}
 		supl_pt_remove_spte(pr_crt, addr);
 		addr += PGSIZE;
@@ -579,13 +600,16 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 	
 	return mf_remove_file(fl);
 }
+#endif
 
+#ifdef VM
 static void syscall_munmap(struct intr_frame *f) {
 	f->eax = -1;
 	int mfd = (int) ((int*)f->esp)[1];	
 	mapped_file* fl = mfd_get_file(mfd);
 	mummap_wrapped(fl);	
 }
+#endif
 
 static void syscall_handler (struct intr_frame *f) 
 {
@@ -638,12 +662,14 @@ static void syscall_handler (struct intr_frame *f)
 		case SYS_CLOSE:
 			syscall_close(f);
 			break;
+#ifdef VM
 		case SYS_MMAP:
 			syscall_mmap(f);
 			break;
 		case SYS_MUNMAP:
 			syscall_munmap(f);
 			break;
+#endif
 		default:
 			thread_exit();  
 		}

@@ -22,28 +22,28 @@ static struct list_elem *lru_cursor = NULL;
 /* A lock for frame_table synchronized access*/
 struct lock ft_lock;
 
-static bool install_page (void *pagedir, void *upage, void *kpage, bool writable);
+static bool install_frame (frame* frame, bool writable);
 
 static frame* frame_lookup (void *kpage)
 {
-	lock_acquire(&ft_lock);
 	struct list_elem *e = list_head (&frame_table);
 	while ((e = list_next (e)) != list_end (&frame_table))
 	{
 		frame *f = list_entry(e, frame, list_elem);
 		if(f->kpage == kpage)
 		{
-			lock_release(&ft_lock);
 			return f;
 		}
 	}
-	lock_release(&ft_lock);
 	return NULL;
 }
 
 void* ft_get_frame(void *kpage)
 {
-	return frame_lookup(kpage);
+	lock_acquire(&ft_lock);
+	frame *f = frame_lookup(kpage);
+	lock_release(&ft_lock);
+	return f;
 }
 
 /**
@@ -118,7 +118,7 @@ frame* ft_alloc_frame(bool zero_page, bool writable, void *page_u_addr)
 
 		//for debugging assert
 		//check if frame table info is consistent with page table info
-		//ASSERT(pagedir_get_page(f->pagedir, f->upage) == f->kpage);
+		ASSERT(pagedir_get_page(f->pagedir, f->upage) == f->kpage);
 
 		if(f == NULL)
 			return NULL;
@@ -136,8 +136,8 @@ frame* ft_alloc_frame(bool zero_page, bool writable, void *page_u_addr)
 	f->upage = page_u_addr;
 	f->pagedir = thread_current()->pagedir;
 	f->process = process_current();
-	//printf("Frame %x given to process %d\n", f->kpage, f->process->pid);
-	if (!install_page(f->pagedir, f->upage, f->kpage, writable))
+
+	if (!install_frame(f, writable))
 	{
 		void *kpage = f->kpage;
 		ft_remove_frame(f);
@@ -204,15 +204,19 @@ bool ft_evict_frame(frame* frame)
 {
 	ASSERT(frame->pinned == true);
 
-	bool dirty = pagedir_is_dirty(frame->pagedir, frame->upage);
 	pagedir_clear_page(frame->pagedir, frame->upage);
+	bool dirty = pagedir_is_dirty(frame->pagedir, frame->upage);
 
 	struct supl_pte *pte = supl_pt_get_spte(frame->process, frame->upage);
 
 	if(pte->swap_slot_no == -2) {
-		mapped_file *mfile = get_mapped_file_from_page_pointer(pte->virt_page_addr);
+
+		mapped_file *mfile = NULL;
+		if(dirty) {
+			mapped_file *mfile = get_mapped_file_from_page_pointer(frame->upage);
+		}
 		if(mfile != NULL) {
-			save_page_mm(mfile->fd, pte->virt_page_addr - mfile->user_provided_location, frame->kpage);
+			save_page_mm(mfile->fd, frame->upage - mfile->user_provided_location, frame->kpage);
 		}
 	}
 	else if( dirty || pte->page_read_bytes == 0 )
@@ -262,10 +266,12 @@ void ft_unpin_frame(frame *f)
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
 static bool
-install_page (void *pagedir, void *upage, void *kpage, bool writable)
+install_frame (frame *f, bool writable)
 {
   /* Verify that there's not already a page at that virtual
      address, then map our page there. */
-  return (pagedir_get_page (pagedir, upage) == NULL
-          && pagedir_set_page (pagedir, upage, kpage, writable));
+  return (pagedir_get_page (f->pagedir, f->upage) == NULL
+          && pagedir_set_page (f->pagedir, f->upage, f->kpage, writable));
 }
+
+

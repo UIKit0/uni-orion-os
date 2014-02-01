@@ -42,6 +42,7 @@ pagedir_destroy (uint32_t *pd)
         
         for (pte = pt; pte < pt + PGSIZE / sizeof *pte; pte++)
         {
+#ifdef VM
           if(!(*pte & PTE_P))
         	  continue;
 
@@ -55,6 +56,10 @@ pagedir_destroy (uint32_t *pd)
           else {
         	  ft_unpin_frame(f);
           }
+#else
+          if(*pte & PTE_P)
+              palloc_free_page(pte_get_page(*pte));
+#endif
         }
         palloc_free_page (pt);
       }

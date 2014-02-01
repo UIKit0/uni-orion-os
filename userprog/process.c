@@ -128,7 +128,9 @@ void init_master_process( process_t* proc) {
   proc->exit_code = -1;
   proc->exe_file = NULL; 
   list_init( &proc->owned_file_descriptors);
+#ifdef VM
   list_init( &proc->mmap_list);
+#endif
   proc->num_of_opened_files = 0;
   //we don't really need the process_lock for the master process  
 }
@@ -140,9 +142,9 @@ void init_process( process_t* proc ) {
   proc->exit_code = -1;
   proc->exe_file = NULL;
   list_init( &proc->owned_file_descriptors);
-  list_init( &proc->mmap_list);
   proc->num_of_opened_files = 0;
 #ifdef VM
+  list_init( &proc->mmap_list);
   supl_pt_init(&proc->supl_pt);
 #endif
   sema_init( &(proc->process_semaphore), 0);
@@ -376,7 +378,9 @@ process_exit (void)
   else {
     exit_code = current->exit_code;
   }
+#ifdef VM
   munmap_all();
+#endif
   lock_acquire(&file_sys_lock);  
   free_fd_list();
 
@@ -626,6 +630,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 /* load() helpers. */
 
+static bool install_page (void *upage, void *kpage, bool writable);
+
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
 static bool
@@ -727,6 +733,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+#ifdef VM
 bool load_page_mm(struct file* fd, int ofs, uint8_t *upage) {
 
   frame* frame = ft_alloc_frame(true, true, upage);
@@ -743,8 +750,6 @@ bool load_page_mm(struct file* fd, int ofs, uint8_t *upage) {
   file_seek(fd, beforeoff);
   filesys_unlock();
 
-  pagedir_set_dirty(frame->pagedir, upage, false);
-
   return true;  
 }
 
@@ -758,8 +763,10 @@ bool save_page_mm(struct file* fd, int ofs, uint8_t *kpage) {
   file_write(fd, kpage, bytesToWrite);
   file_seek(fd, beforeoff);
   filesys_unlock();
+
   return true;
 }
+#endif
 
 static bool
 load_page(struct file *file, off_t ofs, uint8_t *upage,
@@ -791,7 +798,6 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 
 		//if loaded from swap, surely it's not in the file => it's dirty
 		pagedir_set_dirty(frame->pagedir, upage, true);
-
 		return true;
 	}
 #endif
@@ -814,7 +820,6 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 			return false;
 		}
 		filesys_unlock();
-
 	}
 
 	memset(kpage + read_bytes, 0, zero_bytes);
@@ -830,6 +835,27 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 
 	return true;
 }
+
+/* Adds a mapping from user virtual address UPAGE to kernel
+   virtual address KPAGE to the page table.
+   If WRITABLE is true, the user process may modify the page;
+   otherwise, it is read-only.
+   UPAGE must not already be mapped.
+   KPAGE should probably be a page obtained from the user pool
+   with palloc_get_page().
+   Returns true on success, false if UPAGE is already mapped or
+   if memory allocation fails. */
+static bool
+install_page (void *upage, void *kpage, bool writable)
+{
+  struct thread *t = thread_current ();
+
+  /* Verify that there's not already a page at that virtual
+     address, then map our page there. */
+  return (pagedir_get_page (t->pagedir, upage) == NULL
+          && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
 
 bool
 load_page_lazy(process_t *p, supl_pte *spte)

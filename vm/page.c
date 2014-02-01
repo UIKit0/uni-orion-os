@@ -61,7 +61,6 @@ supl_pte *page_lookup (process_t *p, const uint32_t pg_no)
 
 void supl_pt_insert(struct hash *spt, supl_pte *spte)
 {
-	//TODO: might need sync
 	hash_insert(spt, &(spte->he));
 }
 

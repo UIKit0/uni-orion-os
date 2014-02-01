@@ -7,11 +7,13 @@ usage()
     echo "Options: "
     echo "     -v | --verbose (verbose mode)"
     echo "     -d | --gdb (use debugger)"
+    echo "     -i | --inf-timeout (use a big timeout)"
     echo "     -h | --help (this message)"
 }
 
 VERBOSE_OPT=""
 PINTOS_OPTS="PINTOSOPTS="
+TIMEOUT_OPTS=""
 
 while :
 do
@@ -26,6 +28,10 @@ do
 	    ;;
 	-d | --gdb)
 	    PINTOS_OPTS+="--gdb "
+	    shift
+	    ;;
+	-i | --inf-timeout)
+	    TIMEOUT_OPTS="TIMEOUT=30000"
 	    shift
 	    ;;
 	--)
@@ -51,7 +57,10 @@ fi;
 
 test_name=$1
 
-make
+if ! make ; then
+    exit 1
+fi
+
 BINARY=`find ./build/tests/ -name $test_name.o`
 if [ ! "$BINARY" ]; then
     echo
@@ -61,4 +70,4 @@ if [ ! "$BINARY" ]; then
 fi
  
 rm "`dirname $BINARY`/$test_name.output"
-make "`dirname $BINARY`/$test_name.result" $PINTOS_OPTS $VERBOSE_OPT 
+make "`dirname $BINARY`/$test_name.result" $PINTOS_OPTS $VERBOSE_OPT $TIMEOUT_OPTS

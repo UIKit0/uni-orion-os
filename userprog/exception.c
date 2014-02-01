@@ -179,8 +179,6 @@ page_fault (struct intr_frame *f)
 	  process_t *p = process_current();
 	  supl_pte *spte = supl_pt_get_spte(p, fault_addr);
 
-    //struct mapped_file *get_mapped_file_from_page_pointer(void *pagePointer);
-
     if(spte == NULL)
 	  {
 			void *esp = user ? f->esp : thread_current()->esp;
@@ -195,8 +193,6 @@ page_fault (struct intr_frame *f)
 			}
 			else
 			{
-   			//invalid access
-				//printf("Invalid access. Page not found!\n");
 				INVALID_ACCESS();
 			}
 	  }
@@ -209,13 +205,10 @@ page_fault (struct intr_frame *f)
     }
 	  else if(!load_page_lazy(p, spte))
 	  {
-   	  //printf("Page could not be loaded");
 		  kill(f);
 	  }
   }
   else {
-    //writing r/o page
-	  //printf("Invalid access\n");
 	  INVALID_ACCESS();
   }
 
