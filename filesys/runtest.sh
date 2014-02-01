@@ -1,7 +1,19 @@
 
 #!/bin/sh -x
 
+if [ "$#" -ne 1 ]; then
+    echo "Wrong number of parameters. You should call it: $0 test_name"
+    exit 
+fi
+ 
 make
-FILE_LIST=`find ./build/tests/ -name $1.o`
-rm "`dirname $FILE_LIST `/$1"
-make "`dirname $FILE_LIST `/$1.result"
+BINARY=`find ./build/tests/ -name $1.o`
+if [ -z "$BINARY" ]; then
+    echo
+    echo "Test $1 was not found. Check for spelling mistakes"
+    echo
+    exit
+fi
+ 
+rm "`dirname $BINARY`/$1"
+make "`dirname $BINARY`/$1.result"
