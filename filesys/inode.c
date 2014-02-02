@@ -23,6 +23,13 @@ struct inode_disk
     uint32_t unused[123];               /* Not used. */
 };
 
+static block_sector_t get_sector( struct inode_disk* , int );
+static off_t get_size ( struct inode_disk* );
+static block_sector_t get_last_sector( struct inode_disk* );
+static struct inode_disk* get_last_inode_disk( struct inode_disk* );
+static size_t get_number_of_sectors( struct inode_disk* );
+static bool extend_inode( struct inode*, off_t );
+
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
 static inline size_t
@@ -50,8 +57,8 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
-  if (pos < inode->data.length)
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
+  if (pos < inode->data.length) // length holds the total size of the file
+    return get_sector( &inode->data, pos / BLOCK_SECTOR_SIZE );
   else
     return -1;
 }
@@ -86,7 +93,7 @@ inode_create (block_sector_t sector, off_t length)
 
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
-    {
+  {
       size_t sectors = bytes_to_sectors (length);
       disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
@@ -104,7 +111,7 @@ inode_create (block_sector_t sector, off_t length)
           success = true; 
         } 
       free (disk_inode);
-    }
+  }
   return success;
 }
 
@@ -180,8 +187,16 @@ inode_close (struct inode *inode)
       if (inode->removed) 
         {
           free_map_release (inode->sector, 1);
-          free_map_release (inode->data.start,
-                            bytes_to_sectors (inode->data.length)); 
+          struct inode_disk disk_inode = inode->data;
+          //release for every inode_disk
+          while ( disk_inode.next_sector != LAST_SECTOR )
+          {
+            free_map_release (disk_inode.start,
+                            bytes_to_sectors (disk_inode.length));
+            block_read( fs_device, disk_inode.next_sector, &disk_inode );
+          }
+          //release for the last inode_disk
+          free_map_release( disk_inode.start, bytes_to_sectors( disk_inode.length ) );
         }
 
       free (inode); 
@@ -273,6 +288,15 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       /* Sector to write, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (inode, offset);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
+
+      // If the inode doesn't contains the sector
+      if ( sector_idx == -1 )
+      {
+          extend_inode( inode, offset + size );
+          inode->data.file_total_size += ( offset + size );
+          sector_idx = bytes_to_sectors( offset );
+          sector_ofs = offset % BLOCK_SECTOR_SIZE;
+      }
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
       off_t inode_left = inode_length (inode) - offset;
@@ -410,4 +434,14 @@ static size_t
 get_number_of_sectors( struct inode_disk* disk_inode )
 {
   return disk_inode->file_total_size / BLOCK_SECTOR_SIZE;
+}
+
+static bool
+extend_inode( struct inode* inode, off_t offset )
+{
+  off_t gap = offset - inode->data.length;
+  struct inode_disk* last_disk_inode = get_last_inode_disk( &inode->data );
+  free_map_allocate( 1, &last_disk_inode->next_sector );
+  inode_create( last_disk_inode->next_sector, gap );
+  return true;
 }
