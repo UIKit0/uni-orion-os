@@ -372,7 +372,7 @@ inode_allow_write (struct inode *inode)
 off_t
 inode_length (const struct inode *inode)
 {
-  return inode->data.length;
+  return inode->data.file_total_size;
 }
 
 /* Returns the n sector */
@@ -443,7 +443,7 @@ get_number_of_sectors( struct inode_disk* disk_inode )
 static bool
 extend_inode( struct inode* inode, off_t offset )
 {
-  off_t gap = offset - inode->data.length;
+  off_t gap = offset - inode->data.file_total_size;
   struct inode_disk* last_disk_inode = get_last_inode_disk( &inode->data );
   if ( !free_map_allocate( 1, &last_disk_inode->next_sector ) )
   {
