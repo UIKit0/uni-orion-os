@@ -29,6 +29,7 @@ static block_sector_t get_last_sector( struct inode_disk* );
 static struct inode_disk* get_last_inode_disk( struct inode_disk* );
 static size_t get_number_of_sectors( struct inode_disk* );
 static bool extend_inode( struct inode*, off_t );
+static bool try_allocate( struct inode_disk*, size_t );
 
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
@@ -292,7 +293,10 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       // If the inode doesn't contains the sector
       if ( sector_idx == -1 )
       {
-          extend_inode( inode, offset + size );
+          if ( extend_inode( inode, offset + size ) )
+          {
+            return 0;
+          }
           inode->data.file_total_size += ( offset + size );
           sector_idx = bytes_to_sectors( offset );
           sector_ofs = offset % BLOCK_SECTOR_SIZE;
@@ -441,7 +445,52 @@ extend_inode( struct inode* inode, off_t offset )
 {
   off_t gap = offset - inode->data.length;
   struct inode_disk* last_disk_inode = get_last_inode_disk( &inode->data );
-  free_map_allocate( 1, &last_disk_inode->next_sector );
+  if ( !free_map_allocate( 1, &last_disk_inode->next_sector ) )
+  {
+    return false;
+  }
   inode_create( last_disk_inode->next_sector, gap );
   return true;
+}
+
+
+static bool 
+try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
+{
+  struct inode_disk* disk_aux = disk_inode;
+  size_t aux = blocks_number;
+  size_t contor = 0;
+
+  while ( aux != 0 )
+  {
+    if ( free_map_allocate( aux, &disk_aux->start ) )
+    {
+      contor+= aux;
+      aux = blocks_number - aux;
+      if ( contor == blocks_number )
+      {
+        return true;
+      }
+      else
+      {
+        struct inode_disk *new_disk_inode = NULL;
+        new_disk_inode = calloc (1, sizeof *new_disk_inode);
+        new_disk_inode->length = 0;
+        new_disk_inode->magic = INODE_MAGIC;
+        free_map_allocate( 1, &disk_aux->next_sector );
+        block_write (fs_device, disk_aux->next_sector, new_disk_inode);
+        free( new_disk_inode );
+        block_read( fs_device,  disk_aux->next_sector, disk_aux );
+      }
+    }
+    else
+    {
+      aux--;
+    }
+  }
+  if ( contor == blocks_number )
+  {
+    return true;
+  }
+  return false;
 }
