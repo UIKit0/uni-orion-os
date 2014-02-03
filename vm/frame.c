@@ -118,16 +118,12 @@ frame* ft_alloc_frame(bool zero_page, bool writable, void *page_u_addr)
 
 		//for debugging assert
 		//check if frame table info is consistent with page table info
-		ASSERT(pagedir_get_page(f->pagedir, f->upage) == f->kpage);
+		//ASSERT(pagedir_get_page(f->pagedir, f->upage) == f->kpage);
 
 		if(f == NULL)
 			return NULL;
 
-		if(!ft_evict_frame(f))
-		{
-			return NULL;
-		}
-
+		ft_evict_frame(f);
 		//egocentric programming: i have the frame, now you can die :))
 		lock_release(&(f->process->shared_res_lock));
 
@@ -210,11 +206,14 @@ frame *ft_get_lru_frame(void)
 bool ft_evict_frame(frame* frame)
 {
 	ASSERT(frame->pinned == true);
+	ASSERT(lock_held_by_current_thread(&frame->process->shared_res_lock));
 
 	pagedir_clear_page(frame->pagedir, frame->upage);
 	bool dirty = pagedir_is_dirty(frame->pagedir, frame->upage);
 
 	struct supl_pte *pte = supl_pt_get_spte(frame->process, frame->upage);
+
+
 
 	if(pte->swap_slot_no == -2) {
 
@@ -222,7 +221,6 @@ bool ft_evict_frame(frame* frame)
 		if(dirty) {
 			mfile = get_mapped_file_from_page_pointer(frame->process, frame->upage);
 		}
-		ASSERT(lock_held_by_current_thread(&frame->process->shared_res_lock));
 		ASSERT(mfile != NULL || !dirty);
 
 		if(mfile != NULL) {

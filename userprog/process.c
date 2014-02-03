@@ -908,8 +908,10 @@ load_page_lazy(process_t *p, supl_pte *spte)
 	bool writable = spte->writable;
 	off_t ofs = spte->ofs;
 	void *upage = spte->virt_page_addr;
+	lock_acquire(&p->shared_res_lock);
 	int swap_slot_no = spte->swap_slot_no;
 	spte->swap_slot_no = -1;
+	lock_release(&p->shared_res_lock);
 
 	return load_page(file, ofs, upage, page_read_bytes, page_zero_bytes, writable, swap_slot_no);
 }
