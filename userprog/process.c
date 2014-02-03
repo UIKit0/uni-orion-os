@@ -141,10 +141,10 @@ void init_process( process_t* proc ) {
   proc->status = ALIVE;
   proc->exit_code = -1;
   proc->exe_file = NULL;
-  lock_init(&proc->shared_res_lock);
   list_init( &proc->owned_file_descriptors);
   proc->num_of_opened_files = 0;
 #ifdef VM
+  lock_init(&proc->shared_res_lock);
   list_init( &proc->mmap_list);
   supl_pt_init(&proc->supl_pt);
 #endif
@@ -723,7 +723,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		supl_pt_insert(&(process_current()->supl_pt), spte);
 
 #else
-		if(!load_page(file, ofs, upage, read_bytes, zero_bytes, writable, -1))
+		if(!load_page(file, ofs, upage, page_read_bytes, page_zero_bytes, writable, -1))
 			return false;
 #endif
       /* Advance. */
@@ -807,24 +807,30 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 	}
 #endif
 
-	//advance to offset - might be redundant when VM is not implemented, but is safer
+
+
 	if(file != NULL)
 	{
+#ifdef VM
 		filesys_lock();
+#endif
+		//advance to offset - might be redundant when VM is not implemented, but is safer
 		file_seek(file, ofs);
-
 		/* Load this page. */
 		if (file_read(file, kpage, read_bytes) != (int) read_bytes)
 		{
 	#ifdef VM
 			ft_free_frame(frame);
+			filesys_unlock();
 	#else
 			palloc_free_page(kpage);
 	#endif
-			filesys_unlock();
+
 			return false;
 		}
+#ifdef VM
 		filesys_unlock();
+#endif
 	}
 
 	memset(kpage + read_bytes, 0, zero_bytes);

@@ -38,7 +38,7 @@ static void syscall_mmap(struct intr_frame *f);
 static void syscall_munmap(struct intr_frame *f);
 
 static struct list_elem* mummap_wrapped(mapped_file *fl);
-void prevent_page_faults(unsigned char *buffer, size_t size, frame **frames);
+void prevent_page_faults(char *buffer, size_t size, frame **frames);
 void unpin_frames(frame** frames, int nr_of_frames);
 #endif
 
@@ -373,7 +373,7 @@ static void syscall_read(struct intr_frame *f) {
 #ifdef VM
 	//make sure that every page is in memory and will not be swapped out
 	int nr_of_frames = (pg_round_up(buffer + size) - pg_round_down(buffer)) / PGSIZE;
-	frame** frames = (frame *)malloc(nr_of_frames * sizeof(frame*));
+	frame** frames = (frame**)malloc(nr_of_frames * sizeof(frame*));
 	prevent_page_faults(buffer, size, frames);
 #endif
 
@@ -411,7 +411,7 @@ void syscall_write(struct intr_frame *f) {
 #ifdef VM
 	//make sure that every page is in memory and will not be swapped out
 	int nr_of_frames = (pg_round_up(buffer + size) - pg_round_down(buffer)) / PGSIZE;
-	frame** frames = (frame *)malloc(nr_of_frames * sizeof(frame*));
+	frame** frames = (frame**)malloc(nr_of_frames * sizeof(frame*));
 	prevent_page_faults(buffer, size, frames);
 #endif
 
@@ -425,10 +425,10 @@ void syscall_write(struct intr_frame *f) {
 
 }
 #ifdef VM
-void prevent_page_faults(unsigned char *buffer, size_t size, frame** frames)
+void prevent_page_faults(char *buffer, size_t size, frame** frames)
 {
-	unsigned char *start = pg_round_down(buffer);
-	unsigned char *end = buffer + size;
+	char *start = pg_round_down(buffer);
+	char *end = buffer + size;
 	unsigned int i = 0;
 
 	process_t *crt_proc = process_current();
