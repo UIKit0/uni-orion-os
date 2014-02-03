@@ -6,6 +6,10 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
+#ifdef FILESYS_USE_CACHE
+  #include "filesys/cache.h"
+#endif
+
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -281,16 +285,18 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       if (chunk_size <= 0)
         break;
 
+#ifndef FILESYS_USE_CACHE
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
           /* Read full sector directly into caller's buffer. */
           block_read (fs_device, sector_idx, buffer + bytes_read);
+          printf("Not through cache read\n");
         }
       else 
         {
           /* Read sector into bounce buffer, then partially copy
              into caller's buffer. */
-#ifndef FILESYS_USE_CACHE
+
           if (bounce == NULL) 
             {
               bounce = malloc (BLOCK_SECTOR_SIZE);
@@ -299,10 +305,11 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
             }
           block_read (fs_device, sector_idx, bounce);
           memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
-#else
-          cache_read(sector_idx, buffer, sector_ofs, size);
-#endif
         }
+#else
+      cache_read(sector_idx, buffer, sector_ofs, size);
+#endif
+
       
       /* Advance. */
       size -= chunk_size;
@@ -363,15 +370,16 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       int chunk_size = size < min_left ? size : min_left;
       if (chunk_size <= 0)
         break;
-
+#ifndef FILESYS_USE_CACHE
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
           /* Write full sector directly to disk. */
           block_write (fs_device, sector_idx, buffer + bytes_written);
+          printf("Not through cache write\n");
         }
       else 
         {
-#ifndef FILESYS_USE_CACHE
+
           /* We need a bounce buffer. */
           if (bounce == NULL) 
             {
@@ -389,10 +397,10 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
             memset (bounce, 0, BLOCK_SECTOR_SIZE);
           memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
           block_write (fs_device, sector_idx, bounce);
-#else
-          cache_write(sector_idx, buffer, sector_ofs, size);
-#endif
         }
+#else
+      cache_write(sector_idx, buffer, sector_ofs, size);
+#endif
 
       /* Advance. */
       size -= chunk_size;

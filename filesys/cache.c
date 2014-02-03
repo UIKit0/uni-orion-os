@@ -84,6 +84,7 @@ bool gIsCacheThreadRunning;
 int gLruCursor;
 
 void cache_write(sid_t index, void *buffer, int offset, int size) {
+	printf("Cache write\n");
 	sector_supl_t info;
 	int sdataIndex = cache_atomic_get_supl_data_and_pin(&info, index);
 	
@@ -108,6 +109,7 @@ void cache_write(sid_t index, void *buffer, int offset, int size) {
 }
 
 void cache_read(sid_t index, void *buffer, int offset, int size) {
+	printf("Cache read\n");
 	sector_supl_t info;
 	int sdataIndex = cache_atomic_get_supl_data_and_pin(&info, index);
 	
@@ -148,7 +150,8 @@ void cache_init(void) {
 	}
 	gIsCacheThreadRunning = true;
 	gLruCursor = 0;
-	thread_create ("cache_thread", 0, cache_main, NULL);
+	printf("cache: Initialized cache with %d sectors\n", CACHE_SIZE_IN_SECTORS);
+	//thread_create ("cache_thread", 0, cache_main, NULL);
 }
 
 void cache_close(void) {	
@@ -196,7 +199,6 @@ int cache_lru(void) {
 		if(!gCache.cache_aux[it].pinned &&
 			!gCache.cache_aux[it].accessed &&
 			!gCache.cache_aux[it].dirty) {
-			lock_release(&gCache.ss_lock);
 			return it;
 		}
 	}
