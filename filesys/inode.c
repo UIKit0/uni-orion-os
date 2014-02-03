@@ -196,7 +196,7 @@ inode_close (struct inode *inode)
       if (inode->removed) 
         {
           free_map_release (inode->sector, 1);
-#ifndef FILESYS_EXTEND_FILES
+#ifdef FILESYS_EXTEND_FILES
           struct inode_disk disk_inode = inode->data;
           //release for every inode_disk
           while ( disk_inode.next_sector != LAST_SECTOR )
@@ -403,9 +403,9 @@ off_t
 inode_length (const struct inode *inode)
 {
 #ifdef FILESYS_EXTEND_FILES
-  return inode->data.length;
+	return inode->data.file_total_size;
 #else
-  return inode->data.file_total_size;
+	return inode->data.length;
 #endif
 }
 
