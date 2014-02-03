@@ -242,9 +242,7 @@ start_process (void *file_name_)
   char* save_ptr;
   char* file_name_exe = strtok_r( file_name, " ", &save_ptr );
   
-  lock_acquire(&file_sys_lock);
   success = load (file_name_exe, &if_.eip, &if_.esp);
-  lock_release(&file_sys_lock);
 
   if ( success )
   {
@@ -526,6 +524,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  filesys_lock();
+
   /* Open executable file. */
   file = filesys_open (file_name);
     
@@ -609,6 +609,14 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
+  filesys_unlock();
+
+  /*
+    filesys_lock should not be kept during setup stack
+    because setup stack may cause the LRU algorithm to
+  	evict a page that needs filesys
+  */
+
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
@@ -618,6 +626,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   success = true;
 
+  filesys_lock();
  done:
   if(success) {
     process_current()->exe_file = file;
@@ -626,6 +635,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   else {
     file_close(file);
   }
+  filesys_unlock();
   /* We arrive here whether the load is successful or not. */
   return success;
 }
