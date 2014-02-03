@@ -248,6 +248,42 @@ bool ft_atomic_pin_frame(frame *f)
 }
 
 /**
+ * This function pins a frame atomically.
+ */
+frame* ft_atomic_pin_upage(void *pagedir, void *uaddr)
+{
+	lock_acquire(&ft_lock);
+
+	void *kpage = pagedir_get_page(pagedir, uaddr);
+
+	//page is not present in page table anymore
+	//evicted or in process of eviction
+	if(!kpage) {
+		lock_release(&ft_lock);
+		return NULL;
+	}
+
+	frame *f = frame_lookup(kpage);
+	if(!f)
+		return NULL;
+
+	//if frame is already pinned than page
+	//might be in process of eviction but the page
+	//was not set not present yet
+	if(f->pinned == true)
+	{
+		lock_release(&ft_lock);
+		return NULL;
+	}
+
+	ASSERT(f->pinned != true);
+	f->pinned = true;
+	lock_release(&ft_lock);
+
+	return f;
+}
+
+/**
  * Unpins the frame, making it available to
  * be evicted by the LRU algorithm
  */

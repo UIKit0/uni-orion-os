@@ -196,13 +196,6 @@ page_fault (struct intr_frame *f)
 				INVALID_ACCESS();
 			}
 	  }
-    else if(spte->swap_slot_no == -2) {
-      mapped_file *mfile = get_mapped_file_from_page_pointer(spte->virt_page_addr);
-
-      if(mfile) {
-        load_page_mm(mfile->fd, spte->virt_page_addr - mfile->user_provided_location, spte->virt_page_addr);
-      }
-    }
 	  else if(!load_page_lazy(p, spte))
 	  {
 		  kill(f);

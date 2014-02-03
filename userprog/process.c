@@ -856,10 +856,26 @@ install_page (void *upage, void *kpage, bool writable)
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
 
+void load_and_pin_page()
+{
+
+}
 
 bool
 load_page_lazy(process_t *p, supl_pte *spte)
 {
+	//treat mmap
+	if(spte->swap_slot_no == -2) {
+	  mapped_file *mfile = get_mapped_file_from_page_pointer(p, spte->virt_page_addr);
+
+	  if(mfile) {
+		 return load_page_mm(mfile->fd, spte->virt_page_addr - mfile->user_provided_location, spte->virt_page_addr);
+	  }
+	  else
+		 return false;
+	}
+
+	//treat other pages
 	struct file *file = p->exe_file;
 	size_t page_read_bytes = spte->page_read_bytes;
 	size_t page_zero_bytes = spte->page_zero_bytes;

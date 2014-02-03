@@ -38,6 +38,8 @@ static void syscall_mmap(struct intr_frame *f);
 static void syscall_munmap(struct intr_frame *f);
 
 static struct list_elem* mummap_wrapped(mapped_file *fl);
+void prevent_page_faults(unsigned char *buffer, size_t size, frame **frames);
+void unpin_frames(frame** frames, int nr_of_frames);
 #endif
 
 
@@ -367,9 +369,17 @@ static void syscall_read(struct intr_frame *f) {
 		// TODO: read from the keyboard using input_getc()
 	}
 	struct file* file = fd_get_file(fd);
+
+	//make sure that every page is in memory and will not be swapped out
+	int nr_of_frames = (pg_round_up(buffer + size) - pg_round_down(buffer)) / PGSIZE;
+	frame** frames = (frame *)malloc(nr_of_frames * sizeof(frame*));
+	prevent_page_faults(buffer, size, frames);
+
 	filesys_lock();
 	f->eax = file != NULL ? file_read(file, buffer, size) : 0;
 	filesys_unlock();
+
+	unpin_frames(frames, nr_of_frames);
 }
 
 /* Write to a file. */
@@ -393,9 +403,61 @@ void syscall_write(struct intr_frame *f) {
 	}
 
 	struct file* file = fd_get_file(fd);
+
+	//make sure that every page is in memory and will not be swapped out
+	int nr_of_frames = (pg_round_up(buffer + size) - pg_round_down(buffer)) / PGSIZE;
+	frame** frames = (frame *)malloc(nr_of_frames * sizeof(frame*));
+	prevent_page_faults(buffer, size, frames);
+
 	filesys_lock();
 	f->eax = file != NULL ? file_write(file, buffer, size) : 0;
 	filesys_unlock();
+
+	unpin_frames(frames, nr_of_frames);
+}
+
+void prevent_page_faults(unsigned char *buffer, size_t size, frame** frames)
+{
+	unsigned char *start = pg_round_down(buffer);
+	unsigned char *end = buffer + size;
+	unsigned int i = 0;
+
+	process_t *crt_proc = process_current();
+	void *pagedir = thread_current()->pagedir;
+
+	while(start < end)
+	{
+		if(!pagedir_get_page(pagedir, start))
+		{
+			//page is not present
+			supl_pte *spte = supl_pt_get_spte(crt_proc, start);
+			load_page_lazy(crt_proc, spte);
+		}
+
+		frames[i] = ft_atomic_pin_upage(pagedir, start);
+		if(!frames[i])
+		{
+			//this means that page just loaded is in eviction process
+			//give up or try again
+			// a better idea is a function called : load_and_pin_page
+			continue; //retry - we did not increment
+		}
+		else
+		{
+			i++;
+		}
+
+		start += PGSIZE;
+	}
+}
+
+void unpin_frames(frame** frames, int nr_of_frames)
+{
+	int i;
+	for(i = 0; i < nr_of_frames; ++i)
+	{
+		ft_unpin_frame(frames[i]);
+	}
 }
 
 /* Change position in a file. */
