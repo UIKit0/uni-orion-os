@@ -1,10 +1,14 @@
 #include "cache.h"
 #include <threads/synch.h>
+#include <threads/thread.h>
+#include <threads/malloc.h>
+#include <devices/timer.h>
 /**
 	compilation options
 */
 #define CACHE_SIZE_IN_SECTORS 64
 #define SECTOR_SIZE_IN_BYTES 512
+#define DUMP_INTERVAL_TICKS 25
 
 /**
 	data structures
@@ -49,7 +53,9 @@ void cache_atomic_set_supl_data_and_unpin(int cache_sector_index, sector_supl_t 
 
 int cache_evict(void);
 int cache_lru(void);
-int cache_read_ahead_asynch(sid_t index);
+void cache_read_ahead_asynch(sid_t index);
+void cache_read_ahead_internal(sid_t index);
+
 void cache_dump(void);
 
 void cache_read_internal(int cache_sector_index, sid_t sector_index);
@@ -61,6 +67,8 @@ void cache_read_internal(int cache_sector_index, sid_t sector_index);
 	- processes the read_ahead requests
 */
 void cache_main(void);
+
+
 
 
 /**
@@ -98,7 +106,7 @@ void cache_read(sid_t index, void *buffer, int offset, int size) {
 	int sdataIndex = cache_atomic_get_supl_data_and_pin(&info, index);
 	
 	if(info.present) {
-		info.dirty = true;
+		info.accessed = true;
 		lock_acquire(info.s_lock);
 		memcpy(buffer, gCache.cache[info.sector_index_in_cache].data + offset, size);
 		lock_release(info.s_lock);
@@ -112,9 +120,11 @@ void cache_read(sid_t index, void *buffer, int offset, int size) {
 		info.dirty = false;
 		lock_acquire(info.s_lock);
 		memcpy(buffer, gCache.cache[info.sector_index_in_cache].data + offset, size);
-		lock_release(info.s_lock);		
+		lock_release(info.s_lock);
+		cache_read_ahead_asynch(index + 1);
 	}
 	cache_atomic_set_supl_data_and_unpin(sdataIndex, &info);
+	
 }
 
 void cache_init(void) {
@@ -131,6 +141,7 @@ void cache_init(void) {
 		gCache.cache_aux[i].pinned = false;		
 	}
 	gIsCacheThreadRunning = true;
+	thread_create ("cache_thread", 0, cache_main, NULL);
 }
 
 void cache_close(void) {	
@@ -153,16 +164,23 @@ void cache_dump(void) {
 
 }
 
+void cache_read_ahead_internal(sid_t index) {
+
+}
+
+void cache_read_ahead_asynch(sid_t index) {
+
+}
+
 void cache_main(void) {
 	while(gIsCacheThreadRunning) {
-
-		//do some stuff
-		//sleep
+		cache_dump();		
+		timer_sleep(DUMP_INTERVAL_TICKS);
 	}
 }
 
 int cache_evict(void) {
-
+	//to do
 }
 
 int cache_atomic_get_supl_data_and_pin(sector_supl_t *data, sid_t index) {
