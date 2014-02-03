@@ -11,6 +11,9 @@
 #define INODE_MAGIC 0x494e4f44
 #define LAST_SECTOR 0x00
 
+#define FILESYS_USE_CACHE
+#undef FILESYS
+
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
@@ -193,7 +196,7 @@ inode_close (struct inode *inode)
       if (inode->removed) 
         {
           free_map_release (inode->sector, 1);
-#ifdef FILESYS
+#ifndef FILESYS_USE_CACHE
           struct inode_disk disk_inode = inode->data;
           //release for every inode_disk
           while ( disk_inode.next_sector != LAST_SECTOR )
@@ -230,7 +233,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 {
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
-#ifndef FILESYS
+#ifndef FILESYS_USE_CACHE
   uint8_t *bounce = NULL;
 #endif
 
@@ -259,7 +262,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
         {
           /* Read sector into bounce buffer, then partially copy
              into caller's buffer. */
-#ifndef FILESYS
+#ifndef FILESYS_USE_CACHE
           if (bounce == NULL) 
             {
               bounce = malloc (BLOCK_SECTOR_SIZE);
@@ -278,7 +281,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       offset += chunk_size;
       bytes_read += chunk_size;
     }
-#ifndef FILESYS
+#ifndef FILESYS_USE_CACHE
   free (bounce);
 #endif
 
