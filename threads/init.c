@@ -133,7 +133,9 @@ main (void)
   /* Initialize file system. */
   ide_init ();
   locate_block_devices ();
+#ifdef FILESYS_USE_CACHE
   cache_init();
+#endif
   filesys_init (format_filesys);
 #endif
 
