@@ -593,22 +593,22 @@ static void syscall_mmap(struct intr_frame *f) {
 
 
 	list_push_back(&p->mmap_list, &(mf->lst));
-	get_mapped_file_from_page_pointer(addrStart);
+	//get_mapped_file_from_page_pointer(p, addrStart);
 	f->eax = mf->id;
 }
 #endif
 
 #ifdef VM
-mapped_file *get_mapped_file_from_page_pointer(void *pagePointer) {	
-	process_t *cp = process_current();
-	struct list* file_descriptors = &cp->mmap_list;
+mapped_file *get_mapped_file_from_page_pointer(process_t *p, void *pagePointer) {
+	struct list* file_descriptors = &(p->mmap_list);
 	struct list_elem *e;
 	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)) {
 		mapped_file *mmentry = list_entry(e, mapped_file, lst);
 		if(mmentry->user_provided_location <= pagePointer && 
-			pagePointer < mmentry->user_provided_location + mmentry->file_size)
+			(pagePointer <= mmentry->user_provided_location + mmentry->file_size))
 				return mmentry;
 	}
+
 	return NULL;
 }
 #endif
@@ -643,9 +643,20 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 	while(addr < (char*)fl->user_provided_location + fl->file_size) {
 
 		void *kpage = pagedir_get_page (pd, addr);
-		if(kpage && pagedir_is_dirty(pd, addr)) {
-			save_page_mm(fl->fd, addr - (char*)fl->user_provided_location, kpage);
+		if(kpage)
+		{
+			void *frame = ft_get_frame(kpage);
+			if( frame != NULL && ft_atomic_pin_frame(frame))
+			{
+				lock_acquire(&pr_crt->shared_res_lock);
+				ft_evict_frame(frame);
+				lock_release(&pr_crt->shared_res_lock);
+				ft_free_frame(frame);
+			}
 		}
+		/*if(kpage && pagedir_is_dirty(pd, addr)) {
+			save_page_mm(fl->fd, addr - (char*)fl->user_provided_location, kpage);
+		}*/
 		supl_pt_remove_spte(pr_crt, addr);
 		addr += PGSIZE;
 	}
@@ -660,7 +671,10 @@ static struct list_elem* mummap_wrapped(mapped_file *fl) {
 		link->mapped = false;		
 	}
 	
-	return mf_remove_file(fl);
+	lock_acquire(&pr_crt->shared_res_lock);
+	struct list_elem* e = mf_remove_file(fl);
+	lock_release(&pr_crt->shared_res_lock);
+	return e;
 }
 #endif
 

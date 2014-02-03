@@ -35,6 +35,8 @@ struct process_t {
 	/*file used for denying writes
     and for lazy loading of executable*/
 	struct file * exe_file;
+	/*Locks the resources shared by this process with more process:like mmaps, spte's*/
+	struct lock shared_res_lock;
 #ifdef VM
 	//supplemental page table - needed for lazy loading
 	struct hash supl_pt;

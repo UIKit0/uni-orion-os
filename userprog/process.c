@@ -141,6 +141,7 @@ void init_process( process_t* proc ) {
   proc->status = ALIVE;
   proc->exit_code = -1;
   proc->exe_file = NULL;
+  lock_init(&proc->shared_res_lock);
   list_init( &proc->owned_file_descriptors);
   proc->num_of_opened_files = 0;
 #ifdef VM
@@ -378,6 +379,7 @@ process_exit (void)
   else {
     exit_code = current->exit_code;
   }
+
 #ifdef VM
   munmap_all();
 #endif
@@ -750,6 +752,8 @@ bool load_page_mm(struct file* fd, int ofs, uint8_t *upage) {
   file_seek(fd, beforeoff);
   filesys_unlock();
 
+  ASSERT(frame->upage == upage && frame->pagedir == thread_current()->pagedir);
+
   return true;  
 }
 
@@ -798,6 +802,7 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 
 		//if loaded from swap, surely it's not in the file => it's dirty
 		pagedir_set_dirty(frame->pagedir, upage, true);
+		ASSERT(frame->upage == upage && frame->pagedir == thread_current()->pagedir);
 		return true;
 	}
 #endif
@@ -832,7 +837,7 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 		return false;
 	}
   #endif
-
+	ASSERT(frame->upage == upage && frame->pagedir == thread_current()->pagedir);
 	return true;
 }
 

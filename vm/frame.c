@@ -128,6 +128,10 @@ frame* ft_alloc_frame(bool zero_page, bool writable, void *page_u_addr)
 			return NULL;
 		}
 
+		//egocentric programming: i have the frame, now you can die :))
+		lock_release(&(f->process->shared_res_lock));
+
+
 		if (zero_page)
 			memset(f->kpage, 0, PGSIZE );
 
@@ -183,6 +187,9 @@ frame *ft_get_lru_frame(void)
 
 		frame *f = list_entry(lru_cursor, frame, list_elem);
 		if (!pagedir_is_accessed(f->pagedir, f->upage) && !f->pinned) {
+			//empathy programming - if the process is dying, leave him alone :)
+			if(!lock_try_acquire(&f->process->shared_res_lock))
+				continue;
 			f->pinned = true;
 			lock_release(&ft_lock);
 			return f;
@@ -213,8 +220,11 @@ bool ft_evict_frame(frame* frame)
 
 		mapped_file *mfile = NULL;
 		if(dirty) {
-			mapped_file *mfile = get_mapped_file_from_page_pointer(frame->upage);
+			mfile = get_mapped_file_from_page_pointer(frame->process, frame->upage);
 		}
+		//ASSERT(lock_held_by_current_thread(&frame->process->shared_res_lock));
+		ASSERT(mfile != NULL || !dirty);
+
 		if(mfile != NULL) {
 			save_page_mm(mfile->fd, frame->upage - mfile->user_provided_location, frame->kpage);
 		}
