@@ -3,19 +3,19 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "userprog/process.h"
-#include "filesys/filesys.h"
-#include "filesys/file.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "userprog/process.h"
 #include "userprog/pagedir.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "filesys/fd.h"
+
 #ifdef VM
 	#include "vm/frame.h"
 	#include "vm/page.h"
+	#include "vm/mmap.h"
 #endif
-
-#define READ	1
-#define WRITE 	2
 
 static void syscall_handler (struct intr_frame *);
 
@@ -36,13 +36,11 @@ static void syscall_close(struct intr_frame *f);
 #ifdef VM
 static void syscall_mmap(struct intr_frame *f);
 static void syscall_munmap(struct intr_frame *f);
-
-static struct list_elem* mummap_wrapped(mapped_file *fl);
-void prevent_page_faults(char *buffer, size_t size, frame **frames);
-void unpin_frames(frame** frames, int nr_of_frames);
 #endif
 
-
+#ifdef VM
+	static supl_pte* gPages[1024];
+#endif
 
 /* Initializes the syscall handler. */
 void syscall_init (void) {
@@ -110,136 +108,9 @@ static bool is_valid_user_address_range_write(char* address UNUSED, int size UNU
 	return true;	
 }
 
-
-
 static void syscall_halt(struct intr_frame *f) {
 	f->eax = 0;
 }
-
-/*
- *	Creates a new, unused, file descriptor.
- */
- static int fd_create(void) {
-	struct list* file_descriptors = &process_current()->owned_file_descriptors;
-	struct list_elem *e;
-	int max_fd = 2;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
-		int fd = list_entry(e, struct fd_list_link, l_elem)->fd;
-		if (fd > max_fd) {
-			max_fd = fd;
-		}
-	}
-	return max_fd + 1;
-}
-
-
-/* 
- * Returns true if the file descriptor was assigned to a file opened by this process. 
- */
-static bool fd_is_valid(int fd, int direction) {
-	if (fd == STDOUT && (direction & WRITE) != 0) {
-		return true;
-	}
-
-	if (fd == STDIN && (direction & READ) != 0) {
-		return true;
-	}
-
-	struct list* file_descriptors = &process_current()->owned_file_descriptors;
-	struct list_elem *e;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
-		int current_fd = list_entry(e, struct fd_list_link, l_elem)->fd;
-		if (current_fd == fd) {
-			return true;
-		}
-	}
-    return false;
-}
-
-/*
- *	Returns the file structured managed by this file descriptor.
- */
-struct file *fd_get_file(int fd) {
-	struct list* file_descriptors = &process_current()->owned_file_descriptors;
-	struct list_elem *e;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
-		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
-		if (link->fd == fd) {
-			return link->file;
-		}
-	}
-	return NULL;
-}
-
-#ifdef VM
-static mapped_file *mfd_get_file(int mfd) {
-	struct list* file_descriptors = &process_current()->mmap_list;
-	struct list_elem *e;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
-		mapped_file *link = list_entry(e, mapped_file, lst);
-		if (link->id == mfd) {
-			return link;
-		}
-	}
-	return NULL;
-}
-#endif
-
-#ifdef VM
-static struct list_elem* mf_remove_file(mapped_file *mf) {
-	if(mf == NULL)
-		return NULL;
-
-	struct list_elem *e = list_remove(&mf->lst);
-	free(mf);
-	return e;
-}
-#endif
-
-#ifdef VM
-static mapid_t mfd_create(void) {
-	struct list* file_descriptors = &process_current()->mmap_list;
-	struct list_elem *e;
-	mapid_t max_fd = 2;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
-		int fd = list_entry(e, mapped_file, lst)->id;
-		if (fd > max_fd) {
-			max_fd = fd;
-		}
-	}
-	return max_fd + 1;
-}
-#endif
-
-/*
- *	Returns the list element that links this file descriptor;
- */
-static struct fd_list_link *fd_get_link(int fd) {
-	struct list* file_descriptors = &process_current()->owned_file_descriptors;
-	struct list_elem *e;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
-		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
-		if (link->fd == fd) {
-			return link;
-		}
-	}
-	return NULL;
-}
-
-static void fd_remove_file(int fd) {
-	struct list* file_descriptors = &process_current()->owned_file_descriptors;
-	struct list_elem *e;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); ){
-		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
-		e = list_next(e);		
-		if (link->fd == fd) {
-			list_remove(&link->l_elem);
-			free(link);			
-			return;
-		}
-	}	
-}
-
 
 /* Slap the user and kill his process. */
 static void kill_current_process(void) {
@@ -374,7 +245,7 @@ static void syscall_read(struct intr_frame *f) {
 	//make sure that every page is in memory and will not be swapped out
 	int nr_of_frames = (pg_round_up(buffer + size) - pg_round_down(buffer)) / PGSIZE;
 	frame** frames = (frame**)malloc(nr_of_frames * sizeof(frame*));
-	prevent_page_faults(buffer, size, frames);
+	preload_and_pin_pages(buffer, size, frames);
 #endif
 
 	filesys_lock();
@@ -382,7 +253,7 @@ static void syscall_read(struct intr_frame *f) {
 	filesys_unlock();
 
 #ifdef VM
-	unpin_frames(frames, nr_of_frames);
+	ft_unpin_frames(frames, nr_of_frames);
 #endif
 }
 
@@ -412,7 +283,7 @@ void syscall_write(struct intr_frame *f) {
 	//make sure that every page is in memory and will not be swapped out
 	int nr_of_frames = (pg_round_up(buffer + size) - pg_round_down(buffer)) / PGSIZE;
 	frame** frames = (frame**)malloc(nr_of_frames * sizeof(frame*));
-	prevent_page_faults(buffer, size, frames);
+	preload_and_pin_pages(buffer, size, frames);
 #endif
 
 	filesys_lock();
@@ -420,55 +291,10 @@ void syscall_write(struct intr_frame *f) {
 	filesys_unlock();
 
 #ifdef VM
-	unpin_frames(frames, nr_of_frames);
+	ft_unpin_frames(frames, nr_of_frames);
 #endif
 
 }
-#ifdef VM
-void prevent_page_faults(char *buffer, size_t size, frame** frames)
-{
-	char *start = pg_round_down(buffer);
-	char *end = buffer + size;
-	unsigned int i = 0;
-
-	process_t *crt_proc = process_current();
-	void *pagedir = thread_current()->pagedir;
-
-	while(start < end)
-	{
-		if(!pagedir_get_page(pagedir, start))
-		{
-			//page is not present
-			supl_pte *spte = supl_pt_get_spte(crt_proc, start);
-			load_page_lazy(crt_proc, spte);
-		}
-
-		frames[i] = ft_atomic_pin_upage(pagedir, start);
-		if(!frames[i])
-		{
-			//this means that page just loaded is in eviction process
-			//give up or try again
-			// a better idea is a function called : load_and_pin_page
-			continue; //retry - we did not increment
-		}
-		else
-		{
-			i++;
-		}
-
-		start += PGSIZE;
-	}
-}
-
-void unpin_frames(frame** frames, int nr_of_frames)
-{
-	int i;
-	for(i = 0; i < nr_of_frames; ++i)
-	{
-		ft_unpin_frame(frames[i]);
-	}
-}
-#endif
 
 /* Change position in a file. */
 static void syscall_seek(struct intr_frame *f) {
@@ -534,21 +360,17 @@ void syscall_exec(struct intr_frame *f) {
 }
 
 #ifdef VM
-static supl_pte* gPages[1024];
-#endif
-
-#ifdef VM
 static void syscall_mmap(struct intr_frame *f) {
 	f->eax = -1;
 	process_t *p = process_current();
-	
+
 	int fd = (int) ((int*)f->esp)[1];
 	char *addr = (void *) ((int*)f->esp)[2];
 	char *addrStart = addr;
 
 	struct file* fl = fd_get_file(fd);
 
-	
+
 	if(fl == NULL) {
 		return;
 	}
@@ -566,7 +388,7 @@ static void syscall_mmap(struct intr_frame *f) {
 	int pageIndex = 0;
 
 
-	struct thread *th = thread_current();
+	//struct thread *th = thread_current();
 
 	while(pageIndex < pageNumber) {
 		supl_pte *spte = (supl_pte*)malloc(sizeof(supl_pte));
@@ -582,8 +404,8 @@ static void syscall_mmap(struct intr_frame *f) {
 			while(pageIndex >= 0) {
 				supl_pt_remove(&(p->supl_pt), gPages[pageIndex]);
 				--pageIndex;
-			}			
-			return;			
+			}
+			return;
 		}
 		supl_pt_insert(&(p->supl_pt), spte);
 		//pagedir_set_present(th->pagedir, addr, false);
@@ -609,91 +431,11 @@ static void syscall_mmap(struct intr_frame *f) {
 #endif
 
 #ifdef VM
-mapped_file *get_mapped_file_from_page_pointer(process_t *p, void *pagePointer) {
-	struct list* file_descriptors = &(p->mmap_list);
-	struct list_elem *e;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)) {
-		mapped_file *mmentry = list_entry(e, mapped_file, lst);
-		if(mmentry->user_provided_location <= pagePointer && 
-			(pagePointer <= mmentry->user_provided_location + mmentry->file_size))
-				return mmentry;
-	}
-
-	return NULL;
-}
-#endif
-
-#ifdef VM
-void munmap_all(void) {
-	process_t *cp = process_current();
-	struct list* file_descriptors = &cp->mmap_list;
-	struct list_elem *e;
-	for (e = list_begin(file_descriptors); e != list_end(file_descriptors);) {
-		mapped_file *mmentry = list_entry(e, mapped_file, lst);
-		e = mummap_wrapped(mmentry);		
-	}	
-}
-#endif
-
-
-#ifdef VM
-static struct list_elem* mummap_wrapped(mapped_file *fl) {
-	if(fl == NULL) {
-		return NULL;
-	}
-	struct file* cfile = fl->fd;
-
-	if(cfile == NULL) {
-		return mf_remove_file(fl);		
-	}
-	char *addr = (char *)fl->user_provided_location;
-	uint32_t *pd = thread_current()->pagedir;
-	process_t *pr_crt = process_current();
-
-	while(addr < (char*)fl->user_provided_location + fl->file_size) {
-
-		void *kpage = pagedir_get_page (pd, addr);
-		if(kpage)
-		{
-			void *frame = ft_get_frame(kpage);
-			if( frame != NULL && ft_atomic_pin_frame(frame))
-			{
-				lock_acquire(&pr_crt->shared_res_lock);
-				ft_evict_frame(frame);
-				lock_release(&pr_crt->shared_res_lock);
-				ft_free_frame(frame);
-			}
-		}
-		/*if(kpage && pagedir_is_dirty(pd, addr)) {
-			save_page_mm(fl->fd, addr - (char*)fl->user_provided_location, kpage);
-		}*/
-		supl_pt_remove_spte(pr_crt, addr);
-		addr += PGSIZE;
-	}
-	struct fd_list_link* link = fd_get_link(fl->fd2);	
-
-	if(!link) {
-		filesys_lock();
-		file_close(fl->fd);
-		filesys_unlock();
-	}
-	else {
-		link->mapped = false;		
-	}
-	
-	lock_acquire(&pr_crt->shared_res_lock);
-	struct list_elem* e = mf_remove_file(fl);
-	lock_release(&pr_crt->shared_res_lock);
-	return e;
-}
-#endif
-
-#ifdef VM
 static void syscall_munmap(struct intr_frame *f) {
 	f->eax = -1;
-	int mfd = (int) ((int*)f->esp)[1];	
+	int mfd = (int) ((int*)f->esp)[1];
 	mapped_file* fl = mfd_get_file(mfd);
-	mummap_wrapped(fl);	
+	mummap_wrapped(fl);
 }
 #endif
 

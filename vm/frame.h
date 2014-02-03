@@ -35,6 +35,7 @@ frame* 	ft_get_lru_frame(void);
 bool 	ft_evict_frame(frame* frame);
 bool 	ft_atomic_pin_frame(frame* frame);
 void 	ft_unpin_frame(frame* frame);
+void 	ft_unpin_frames(frame** frames, int nr_of_frames);
 frame* 	ft_atomic_pin_upage(void *pagedir, void *uaddr);
 
 #endif

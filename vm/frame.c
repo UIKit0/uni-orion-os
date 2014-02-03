@@ -5,13 +5,13 @@
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "threads/pte.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include "userprog/syscall.h"
 #include "vm/page.h"
 #include "vm/swap.h"
-#include "threads/pte.h"
-
+#include "vm/mmap.h"
 
 #include <string.h>
 
@@ -222,7 +222,7 @@ bool ft_evict_frame(frame* frame)
 		if(dirty) {
 			mfile = get_mapped_file_from_page_pointer(frame->process, frame->upage);
 		}
-		//ASSERT(lock_held_by_current_thread(&frame->process->shared_res_lock));
+		ASSERT(lock_held_by_current_thread(&frame->process->shared_res_lock));
 		ASSERT(mfile != NULL || !dirty);
 
 		if(mfile != NULL) {
@@ -300,6 +300,15 @@ frame* ft_atomic_pin_upage(void *pagedir, void *uaddr)
 void ft_unpin_frame(frame *f)
 {
 	f->pinned = false;
+}
+
+void ft_unpin_frames(frame** frames, int nr_of_frames)
+{
+	int i;
+	for(i = 0; i < nr_of_frames; ++i)
+	{
+		ft_unpin_frame(frames[i]);
+	}
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel

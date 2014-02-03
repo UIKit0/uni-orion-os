@@ -12,6 +12,7 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "filesys/fd.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -20,11 +21,13 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
-#include "syscall.h"
-#include "vm/frame.h"
-#include "vm/page.h"
-#include "vm/swap.h"
-#include "userprog/syscall.h"
+
+#ifdef VM
+	#include "vm/frame.h"
+	#include "vm/page.h"
+	#include "vm/swap.h"
+	#include "vm/mmap.h"
+#endif
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -976,3 +979,43 @@ void filesys_lock(void) {
 void filesys_unlock(void) {
   lock_release(&file_sys_lock);
 }
+
+#ifdef VM
+/*
+ * used for preventing page faults
+ */
+void preload_and_pin_pages(char *buffer, size_t size, frame** frames)
+{
+	char *start = pg_round_down(buffer);
+	char *end = buffer + size;
+	unsigned int i = 0;
+
+	process_t *crt_proc = process_current();
+	void *pagedir = thread_current()->pagedir;
+
+	while(start < end)
+	{
+		if(!pagedir_get_page(pagedir, start))
+		{
+			//page is not present
+			supl_pte *spte = supl_pt_get_spte(crt_proc, start);
+			load_page_lazy(crt_proc, spte);
+		}
+
+		frames[i] = ft_atomic_pin_upage(pagedir, start);
+		if(!frames[i])
+		{
+			//this means that page just loaded is in eviction process
+			//give up or try again
+			// a better idea is a function called : load_and_pin_page
+			continue; //retry - we did not increment
+		}
+		else
+		{
+			i++;
+		}
+
+		start += PGSIZE;
+	}
+}
+#endif

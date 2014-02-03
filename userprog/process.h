@@ -44,24 +44,6 @@ struct process_t {
 #endif
 };
 
-typedef int mapid_t;
-struct mapped_file {
-	mapid_t id;
-	struct file *fd;
-	int fd2;
-	void *user_provided_location;
-	size_t file_size;
-	struct list_elem lst;
-};
-typedef struct mapped_file mapped_file;
-
-struct fd_list_link {
-	struct list_elem l_elem;
-	int fd;	
-	struct file *file;
-	bool mapped;
-};
-
 pid_t process_execute (const char *file_name);
 int process_wait (pid_t);
 void process_exit (void);
@@ -76,6 +58,7 @@ process_t * find_process(pid_t pid);
 
 #ifdef VM
   bool load_page_lazy(process_t *p, supl_pte *supl_pte);
+  void preload_and_pin_pages(char *buffer, size_t size, frame** frames);
   bool load_page_mm(struct file* fd, int ofs, uint8_t *upage);
   bool save_page_mm(struct file* fd, int ofs, uint8_t *kpage);
   bool stack_growth(int nr_of_pages);

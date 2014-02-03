@@ -216,14 +216,15 @@ page_fault (struct intr_frame *f)
  * of pages that need to be allocated to stack. Otherwise
  * returns 0.
  */
+#ifdef VM
 int is_stack_page_fault( void* fault_addr, void *esp )
 {
-#ifdef VM
+
   if ( ( esp - fault_addr == 32 ) || ( esp - fault_addr == 4 )
 		  || (fault_addr >= esp && fault_addr < thread_current()->last_stack_page) )
   {
       return (thread_current()->last_stack_page - esp) / PGSIZE + 1;
   }
-#endif
   return 0;
 }
+#endif

@@ -12,7 +12,6 @@ struct file;
 struct process_t;
 typedef struct process_t process_t;
 
-
 enum pstatus_t {
 	ALIVE, 
 	KILLED,
