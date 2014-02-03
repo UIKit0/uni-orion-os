@@ -7,9 +7,29 @@ sector index type
 */
 typedef int sid_t;
 
-void write(sid_t index, void *buffer, int offset, int size);
-void read(sid_t index, void *buffer, int offset, int size);
-void dump_cache(void);
+/**
+	will write to disk through the cache
+*/
+void cache_write(sid_t index, void *buffer, int offset, int size);
+
+
+/**
+	will read from disk through the cache
+*/
+void cache_read(sid_t index, void *buffer, int offset, int size);
+
+/**
+	called when the OS starts.
+	- starts the cache main thread
+*/
+void cache_init(void);
+
+/**
+	called when the OS closes. Will write unwritten data to disk
+*/
+void cache_close(void);
+
+
 
 
 #endif

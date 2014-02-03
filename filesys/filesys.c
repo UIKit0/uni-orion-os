@@ -5,6 +5,7 @@
 #include "filesys/file.h"
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
+#include "filesys/cache.h"
 #include "filesys/directory.h"
 
 /* Partition that contains the file system. */
@@ -34,6 +35,7 @@ void filesys_init(bool format)
 void
 filesys_done (void) 
 {
+  cache_close();
   free_map_close ();
 }
 
