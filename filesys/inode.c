@@ -9,25 +9,26 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
-#define LAST_SECTOR 0x00
+#define NULL_SECTOR 0x00
+#define INODE_DISK_ARRAY_SIZE 62
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
 {
-    block_sector_t start;               /* First data sector. */
-    off_t length;                       /* File size in bytes. */
-    block_sector_t next_sector;         /* Address of the next inode_disk sector */
-    uint32_t file_total_size;           /* total size of the file */
+    block_sector_t start[ INODE_DISK_ARRAY_SIZE ];           /* First data sector. */
+    off_t length[ INODE_DISK_ARRAY_SIZE ];                   /* File size in bytes. */
+    off_t file_total_size;              /* total size of the file */
+    block_sector_t next_sector;         /* Address of the next inode_disk */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[123];               /* Not used. */
+    uint32_t unused;                    /* Not used */
 };
 
-static block_sector_t get_sector( struct inode_disk* , int );
+
+
+static block_sector_t get_sector( const struct inode_disk* , int );
 static off_t get_size ( struct inode_disk* );
-static block_sector_t get_last_sector( struct inode_disk* );
 static struct inode_disk* get_last_inode_disk( struct inode_disk* );
-static size_t get_number_of_sectors( struct inode_disk* );
 static bool extend_inode( struct inode*, off_t );
 static bool try_allocate( struct inode_disk*, size_t );
 
@@ -58,7 +59,7 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
-  if (pos < inode->data.length) // length holds the total size of the file
+  if (pos < inode->data.file_total_size) // length holds the total size of the file
     return get_sector( &inode->data, pos / BLOCK_SECTOR_SIZE );
   else
     return -1;
@@ -189,15 +190,24 @@ inode_close (struct inode *inode)
         {
           free_map_release (inode->sector, 1);
           struct inode_disk disk_inode = inode->data;
-          //release for every inode_disk
-          while ( disk_inode.next_sector != LAST_SECTOR )
+
+          //Release for every inode_disk
+          do
           {
-            free_map_release (disk_inode.start,
-                            bytes_to_sectors (disk_inode.length));
-            block_read( fs_device, disk_inode.next_sector, &disk_inode );
-          }
-          //release for the last inode_disk
-          free_map_release( disk_inode.start, bytes_to_sectors( disk_inode.length ) );
+            size_t contor = 0;
+            while ( disk_inode.start[contor] != NULL_SECTOR )
+            {
+               //First it release every data sector from inode
+               free_map_release ( disk_inode.start[contor], bytes_to_sectors ( disk_inode.length[contor] ) );
+               contor++;
+               if ( contor == INODE_DISK_ARRAY_SIZE )
+               {
+                //If contor reach the size of the array
+                //Then read next_sector
+                block_read( fs_device, disk_inode.next_sector, &disk_inode );
+               }
+            }
+          }while ( disk_inode.next_sector != NULL_SECTOR );
         }
 
       free (inode); 
@@ -377,24 +387,43 @@ inode_length (const struct inode *inode)
 
 /* Returns the n sector */
 static block_sector_t 
-get_sector( struct inode_disk* disk_inode, int n )
+get_sector( const struct inode_disk* disk_inode, int n )
 {
-  struct inode_disk* aux = disk_inode;
+ struct inode_disk* aux = disk_inode;
+ int contor = 0;
 
-  while ( aux->length / BLOCK_SECTOR_SIZE < n )
-  {
-    n -= aux->length / BLOCK_SECTOR_SIZE;
-    if ( aux->next_sector != LAST_SECTOR )
+ while ( aux->length[contor] / BLOCK_SECTOR_SIZE < n )
+ {
+    //In case it reach a sector that don't store any address
+    //Then n is greater then the hole file
+    if ( aux->start[contor] != NULL_SECTOR )
     {
-      block_read( fs_device, aux->next_sector, aux );  
+      return NULL_SECTOR;
     }
-    else // In case it tries to get sector which is greater
-    {    // than the number of sectors in the file
-      return LAST_SECTOR;
-    }
-  }
 
-  return aux->start + n;
+    if ( contor < INODE_DISK_ARRAY_SIZE )
+    {
+      //If doesn't reach the last data sector from inode_disk
+      n -= aux->length[contor] / BLOCK_SECTOR_SIZE;
+      contor++;
+    }
+    else
+    {
+      //In case it pass over all data sector, it starts to read from next inode_disk
+      contor = 0;
+      block_read( fs_device, aux->next_sector, aux );
+    }
+ }
+
+ // In case it doesn't contains any data
+ if ( aux->start[contor] != NULL_SECTOR )
+ {
+    return aux->start[contor] + n;
+ }
+ else
+ {
+    return NULL_SECTOR;
+ }
 }
 
 /* Returns the size of the file */
@@ -402,23 +431,26 @@ static off_t
 get_size ( struct inode_disk* disk_inode )
 {
   off_t size = 0;
+  int contor = 0;
+
   struct inode_disk* aux = disk_inode;
-  size += aux->length;
 
-  while ( aux->next_sector != LAST_SECTOR )
+  while( aux->start[contor] != NULL_SECTOR )
   {
-      block_read( fs_device, aux->next_sector, aux );
-      size += aux->length;
+    //Tests if it reads all data sectors from inode_disk
+    if ( contor < INODE_DISK_ARRAY_SIZE )
+    {
+      size += aux->length[contor];
+      contor++;
+    }
+    else
+    {
+      //If it reads all data sectors, reads next_sector.
+      contor = 0;
+      block_read( fs_device, aux->next_sector, aux );  
+    }
   }
-
   return size;
-}
-
-/* Get last sector */
-static block_sector_t
-get_last_sector( struct inode_disk* disk_inode )
-{
-  return get_sector( disk_inode, disk_inode->file_total_size );
 }
 
 /* Get last inode_disk */
@@ -426,31 +458,25 @@ static struct inode_disk*
 get_last_inode_disk( struct inode_disk* disk_inode )
 {
   struct inode_disk* aux = disk_inode;
-  while ( aux->next_sector != LAST_SECTOR )
+  while ( aux->next_sector != NULL_SECTOR )
   {
     block_read( fs_device, aux->next_sector, aux );
   }
   return aux;
 }
 
-/* Get number of sectors in file */
-static size_t
-get_number_of_sectors( struct inode_disk* disk_inode )
-{
-  return disk_inode->file_total_size / BLOCK_SECTOR_SIZE;
-}
-
 static bool
 extend_inode( struct inode* inode, off_t offset )
 {
+  //Calculates the size of the gap.
   off_t gap = offset - inode->data.file_total_size;
+  //Get the last of disk_inode because this disk_inode should 
+  //store the new sectors that would be added.
   struct inode_disk* last_disk_inode = get_last_inode_disk( &inode->data );
-  if ( !free_map_allocate( 1, &last_disk_inode->next_sector ) )
-  {
-    return false;
-  }
-  inode_create( last_disk_inode->next_sector, gap );
-  return true;
+  //Add the new sectors, in case the disk_inode consume all
+  //the sectors, try_allocate also creates a new disk_inode and
+  //stores the remain data in it and connect the sectors.
+  try_allocate( last_disk_inode, gap / BLOCK_SECTOR_SIZE );
 }
 
 
@@ -458,39 +484,52 @@ static bool
 try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
 {
   struct inode_disk* disk_aux = disk_inode;
-  size_t aux = blocks_number;
-  size_t contor = 0;
+  int contor = 0;
 
-  while ( aux != 0 )
+  //Finds first sector data that is free
+  while( disk_aux->start[contor] != NULL_SECTOR )
   {
-    if ( free_map_allocate( aux, &disk_aux->start ) )
+    contor++;
+  }
+
+  size_t numberOfBlocksToAllocate = blocks_number;
+  size_t numberOfBlocksAllocated = 0;
+  while( numberOfBlocksAllocated != blocks_number )
+  {
+    if ( free_map_allocate( numberOfBlocksToAllocate, &disk_aux->start[contor] ) )
     {
-      contor+= aux;
-      aux = blocks_number - aux;
-      if ( contor == blocks_number )
+
+      numberOfBlocksAllocated += numberOfBlocksToAllocate;
+      if ( numberOfBlocksAllocated != blocks_number )
       {
-        return true;
-      }
-      else
-      {
-        struct inode_disk *new_disk_inode = NULL;
-        new_disk_inode = calloc (1, sizeof *new_disk_inode);
-        new_disk_inode->length = 0;
-        new_disk_inode->magic = INODE_MAGIC;
-        free_map_allocate( 1, &disk_aux->next_sector );
-        block_write (fs_device, disk_aux->next_sector, new_disk_inode);
-        free( new_disk_inode );
-        block_read( fs_device,  disk_aux->next_sector, disk_aux );
+        //It doesn't allocates all the blocks yet
+        contor++;
+
+        if ( contor == INODE_DISK_ARRAY_SIZE )
+        {
+          //In case it reach the maximum number of data sectors
+          //We have to create another inode_disk, and continue to add data in it.
+          struct inode_disk* new_inode_disk = NULL;
+          new_inode_disk = calloc( 1, sizeof * new_inode_disk );
+          new_inode_disk->magic = INODE_MAGIC;
+          free_map_allocate( 1, &disk_aux->next_sector );
+          block_write( fs_device, disk_aux->next_sector, new_inode_disk );
+          free( new_inode_disk );
+          block_read( fs_device, disk_aux->next_sector, disk_aux );
+        }
       }
     }
     else
     {
-      aux--;
+      //In case it doesn't succed to allocate then 
+      //reduce the number of consecutive blocks to allocate
+      numberOfBlocksToAllocate--;
+      if ( numberOfBlocksToAllocate == 0 )
+      {
+        return false;
+      }
     }
   }
-  if ( contor == blocks_number )
-  {
-    return true;
-  }
-  return false;
+
+  return true;
 }
