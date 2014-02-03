@@ -164,11 +164,16 @@ void cache_close(void) {
 }
 
 void cache_dump_all(void) {
-
+	lock_acquire(&gCache.ss_lock);
+	int i = 0;
+	for(i = 0; i < CACHE_SIZE_IN_SECTORS; ++i) {
+		cache_dump_entry(i);
+	}
+	lock_release(&gCache.ss_lock);
 }
 
 void cache_dump_entry(int index) {
-
+	//writeback
 }
 
 int cache_lru(void) {
