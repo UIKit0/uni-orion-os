@@ -837,7 +837,9 @@ load_page(struct file *file, off_t ofs, uint8_t *upage,
 		return false;
 	}
   #endif
+#ifdef VM
 	ASSERT(frame->upage == upage && frame->pagedir == thread_current()->pagedir);
+#endif
 	return true;
 }
 
@@ -861,11 +863,7 @@ install_page (void *upage, void *kpage, bool writable)
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
 
-void load_and_pin_page()
-{
-
-}
-
+#ifdef VM
 bool
 load_page_lazy(process_t *p, supl_pte *spte)
 {
@@ -892,6 +890,7 @@ load_page_lazy(process_t *p, supl_pte *spte)
 
 	return load_page(file, ofs, upage, page_read_bytes, page_zero_bytes, writable, swap_slot_no);
 }
+#endif
 
 bool
 stack_growth(int nr_of_pages)

@@ -370,16 +370,20 @@ static void syscall_read(struct intr_frame *f) {
 	}
 	struct file* file = fd_get_file(fd);
 
+#ifdef VM
 	//make sure that every page is in memory and will not be swapped out
 	int nr_of_frames = (pg_round_up(buffer + size) - pg_round_down(buffer)) / PGSIZE;
 	frame** frames = (frame *)malloc(nr_of_frames * sizeof(frame*));
 	prevent_page_faults(buffer, size, frames);
+#endif
 
 	filesys_lock();
 	f->eax = file != NULL ? file_read(file, buffer, size) : 0;
 	filesys_unlock();
 
+#ifdef VM
 	unpin_frames(frames, nr_of_frames);
+#endif
 }
 
 /* Write to a file. */
@@ -404,18 +408,23 @@ void syscall_write(struct intr_frame *f) {
 
 	struct file* file = fd_get_file(fd);
 
+#ifdef VM
 	//make sure that every page is in memory and will not be swapped out
 	int nr_of_frames = (pg_round_up(buffer + size) - pg_round_down(buffer)) / PGSIZE;
 	frame** frames = (frame *)malloc(nr_of_frames * sizeof(frame*));
 	prevent_page_faults(buffer, size, frames);
+#endif
 
 	filesys_lock();
 	f->eax = file != NULL ? file_write(file, buffer, size) : 0;
 	filesys_unlock();
 
+#ifdef VM
 	unpin_frames(frames, nr_of_frames);
-}
+#endif
 
+}
+#ifdef VM
 void prevent_page_faults(unsigned char *buffer, size_t size, frame** frames)
 {
 	unsigned char *start = pg_round_down(buffer);
@@ -459,6 +468,7 @@ void unpin_frames(frame** frames, int nr_of_frames)
 		ft_unpin_frame(frames[i]);
 	}
 }
+#endif
 
 /* Change position in a file. */
 static void syscall_seek(struct intr_frame *f) {
