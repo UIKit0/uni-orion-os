@@ -58,7 +58,8 @@ int cache_lru(void);
 void cache_read_ahead_asynch(sid_t index);
 void cache_read_ahead_internal(sid_t index);
 
-void cache_dump(void);
+void cache_dump_all(void);
+void cache_dump_entry(int entry_index);
 
 void cache_read_internal(int cache_sector_index, sid_t sector_index);
 
@@ -147,7 +148,7 @@ void cache_init(void) {
 }
 
 void cache_close(void) {	
-	cache_dump();
+	cache_dump_all();
 	gIsCacheThreadRunning = false;
 	int i;
 
@@ -162,8 +163,16 @@ void cache_close(void) {
 	lock_release(&gCache.ss_lock);
 }
 
-void cache_dump(void) {
+void cache_dump_all(void) {
 
+}
+
+void cache_dump_entry(int index) {
+
+}
+
+int cache_lru(void) {
+	return 0;
 }
 
 void cache_read_ahead_internal(sid_t index) {
@@ -176,13 +185,19 @@ void cache_read_ahead_asynch(sid_t index) {
 
 void cache_main(void *aux UNUSED) {
 	while(gIsCacheThreadRunning) {
-		cache_dump();		
+		cache_dump_all();		
 		timer_sleep(DUMP_INTERVAL_TICKS);
 	}
 }
 
 int cache_evict(void) {
-	return 0;
+	lock_acquire(&gCache.ss_lock);
+	int ev_id = cache_lru();
+	cache_dump_entry(ev_id);
+	gCache.cache_aux[ev_id].present = false;
+	ASSERT(gCache.cache_aux[ev_id].pinned == 0);
+	lock_release(&gCache.ss_lock);
+	return ev_id;
 }
 
 int cache_atomic_get_supl_data_and_pin(sector_supl_t *data, sid_t index) {
@@ -202,7 +217,6 @@ int cache_atomic_get_supl_data_and_pin(sector_supl_t *data, sid_t index) {
 		found_index = cache_evict();
 		memcpy(data, &gCache.cache_aux[found_index], sizeof(sector_supl_t));
 		gCache.cache_aux[i].pinned++;
-		gCache.cache_aux[i].present = false;
 		found_index = i;
 	}
 	
