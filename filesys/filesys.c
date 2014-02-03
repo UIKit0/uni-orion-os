@@ -7,7 +7,7 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 
-#ifdef FILESYS
+#ifdef FILESYS_USE_CACHE
 #include "filesys/cache.h"
 #endif
 
@@ -38,7 +38,7 @@ void filesys_init(bool format)
 void
 filesys_done (void) 
 {
-#ifdef FILESYS
+#ifdef FILESYS_USE_CACHE
   cache_close();
 #endif
   free_map_close ();

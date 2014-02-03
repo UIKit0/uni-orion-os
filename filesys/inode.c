@@ -11,8 +11,8 @@
 #define INODE_MAGIC 0x494e4f44
 #define LAST_SECTOR 0x00
 
-#define FILESYS_USE_CACHE
-#undef FILESYS
+//#define FILESYS_USE_CACHE
+//#undef FILESYS
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
@@ -63,11 +63,11 @@ byte_to_sector (const struct inode *inode, off_t pos)
   ASSERT (inode != NULL);
 
   if (pos < inode->data.length) // length holds the total size of the file
-//#ifdef FILESYS
-//    return get_sector( &inode->data, pos / BLOCK_SECTOR_SIZE );
-//#else
+#ifdef FILESYS_EXTEND_FILES
+    return get_sector( &inode->data, pos / BLOCK_SECTOR_SIZE );
+#else
   	return inode->data.start + pos / BLOCK_SECTOR_SIZE;
-//#endif
+#endif
   else
     return -1;
 }
@@ -196,7 +196,7 @@ inode_close (struct inode *inode)
       if (inode->removed) 
         {
           free_map_release (inode->sector, 1);
-#ifndef FILESYS_USE_CACHE
+#ifndef FILESYS_EXTEND_FILES
           struct inode_disk disk_inode = inode->data;
           //release for every inode_disk
           while ( disk_inode.next_sector != LAST_SECTOR )
@@ -299,7 +299,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 {
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
-#ifndef FILESYS
+#ifndef FILESYS_USE_CACHE
   uint8_t *bounce = NULL;
 #endif
 
@@ -312,7 +312,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       block_sector_t sector_idx = byte_to_sector (inode, offset);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
-#ifdef FILESYS
+#ifdef FILESYS_EXTEND_FILES
       // If the inode doesn't contains the sector
       if ( sector_idx == -1 )
       {
@@ -343,7 +343,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
         }
       else 
         {
-#ifndef FILESYS
+#ifndef FILESYS_USE_CACHE
           /* We need a bounce buffer. */
           if (bounce == NULL) 
             {
@@ -371,7 +371,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
-#ifndef FILESYS
+#ifndef FILESYS_USE_CACHE
   free (bounce);
 #endif
 
@@ -402,7 +402,7 @@ inode_allow_write (struct inode *inode)
 off_t
 inode_length (const struct inode *inode)
 {
-#ifdef FILESYS
+#ifdef FILESYS_EXTEND_FILES
   return inode->data.length;
 #else
   return inode->data.file_total_size;
