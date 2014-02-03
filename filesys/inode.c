@@ -58,8 +58,13 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
+
   if (pos < inode->data.length) // length holds the total size of the file
-    return get_sector( &inode->data, pos / BLOCK_SECTOR_SIZE );
+//#ifdef FILESYS
+//    return get_sector( &inode->data, pos / BLOCK_SECTOR_SIZE );
+//#else
+  	return inode->data.start + pos / BLOCK_SECTOR_SIZE;
+//#endif
   else
     return -1;
 }
@@ -188,6 +193,7 @@ inode_close (struct inode *inode)
       if (inode->removed) 
         {
           free_map_release (inode->sector, 1);
+#ifdef FILESYS
           struct inode_disk disk_inode = inode->data;
           //release for every inode_disk
           while ( disk_inode.next_sector != LAST_SECTOR )
@@ -198,6 +204,9 @@ inode_close (struct inode *inode)
           }
           //release for the last inode_disk
           free_map_release( disk_inode.start, bytes_to_sectors( disk_inode.length ) );
+#else
+          free_map_release (inode->data.start, bytes_to_sectors (inode->data.length));
+#endif
         }
 
       free (inode); 
@@ -221,7 +230,9 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 {
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
+#ifndef FILESYS
   uint8_t *bounce = NULL;
+#endif
 
   while (size > 0) 
     {
@@ -248,6 +259,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
         {
           /* Read sector into bounce buffer, then partially copy
              into caller's buffer. */
+#ifndef FILESYS
           if (bounce == NULL) 
             {
               bounce = malloc (BLOCK_SECTOR_SIZE);
@@ -256,6 +268,9 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
             }
           block_read (fs_device, sector_idx, bounce);
           memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
+#else
+          cache_read(sector_idx, buffer, sector_ofs, size);
+#endif
         }
       
       /* Advance. */
@@ -263,7 +278,9 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       offset += chunk_size;
       bytes_read += chunk_size;
     }
+#ifndef FILESYS
   free (bounce);
+#endif
 
   return bytes_read;
 }
@@ -279,7 +296,9 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 {
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
+#ifndef FILESYS
   uint8_t *bounce = NULL;
+#endif
 
   if (inode->deny_write_cnt)
     return 0;
@@ -290,6 +309,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       block_sector_t sector_idx = byte_to_sector (inode, offset);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
+#ifdef FILESYS
       // If the inode doesn't contains the sector
       if ( sector_idx == -1 )
       {
@@ -301,6 +321,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
           sector_idx = bytes_to_sectors( offset );
           sector_ofs = offset % BLOCK_SECTOR_SIZE;
       }
+#endif
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
       off_t inode_left = inode_length (inode) - offset;
@@ -319,6 +340,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
         }
       else 
         {
+#ifndef FILESYS
           /* We need a bounce buffer. */
           if (bounce == NULL) 
             {
@@ -336,6 +358,9 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
             memset (bounce, 0, BLOCK_SECTOR_SIZE);
           memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
           block_write (fs_device, sector_idx, bounce);
+#else
+          cache_write(sector_idx, buffer, sector_ofs, size);
+#endif
         }
 
       /* Advance. */
@@ -343,7 +368,9 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
+#ifndef FILESYS
   free (bounce);
+#endif
 
   return bytes_written;
 }
@@ -372,7 +399,11 @@ inode_allow_write (struct inode *inode)
 off_t
 inode_length (const struct inode *inode)
 {
+#ifdef FILESYS
+  return inode->data.length;
+#else
   return inode->data.file_total_size;
+#endif
 }
 
 /* Returns the n sector */
