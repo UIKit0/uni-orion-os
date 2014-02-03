@@ -28,8 +28,4 @@ void cache_init(void);
 	called when the OS closes. Will write unwritten data to disk
 */
 void cache_close(void);
-
-
-
-
 #endif

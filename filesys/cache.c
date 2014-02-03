@@ -3,6 +3,7 @@
 #include <threads/thread.h>
 #include <threads/malloc.h>
 #include <devices/timer.h>
+#include <lib/string.h>
 /**
 	compilation options
 */
@@ -22,9 +23,10 @@ struct sector_supl_t {
 	bool present;
 	bool accessed;
 	bool dirty;
-	bool pinned;
+	int pinned; //pin counter
 	struct lock *s_lock;
 	int sector_index_in_cache;
+	sid_t sector_index; 
 };
 typedef struct sector_supl_t sector_supl_t;
 
@@ -66,7 +68,7 @@ void cache_read_internal(int cache_sector_index, sid_t sector_index);
 	- dumps the cache periodically
 	- processes the read_ahead requests
 */
-void cache_main(void);
+void cache_main(void *aux UNUSED);
 
 
 
@@ -138,7 +140,7 @@ void cache_init(void) {
 
 		lock_init(gCache.cache_aux[i].s_lock);
 		gCache.cache_aux[i].present = false;
-		gCache.cache_aux[i].pinned = false;		
+		gCache.cache_aux[i].pinned = 0;
 	}
 	gIsCacheThreadRunning = true;
 	thread_create ("cache_thread", 0, cache_main, NULL);
@@ -172,7 +174,7 @@ void cache_read_ahead_asynch(sid_t index) {
 
 }
 
-void cache_main(void) {
+void cache_main(void *aux UNUSED) {
 	while(gIsCacheThreadRunning) {
 		cache_dump();		
 		timer_sleep(DUMP_INTERVAL_TICKS);
@@ -180,16 +182,42 @@ void cache_main(void) {
 }
 
 int cache_evict(void) {
-	//to do
+	return 0;
 }
 
 int cache_atomic_get_supl_data_and_pin(sector_supl_t *data, sid_t index) {
+	lock_acquire(&gCache.ss_lock);
+	int i = 0;
+	int found_index = -1;
+	for(i = 0; i < CACHE_SIZE_IN_SECTORS; ++i) {
+		if(gCache.cache_aux[i].sector_index == index) {
+			memcpy(data, &gCache.cache_aux[i], sizeof(sector_supl_t));
+			gCache.cache_aux[i].pinned++;
+			found_index = i;
+		}
+	}
+	lock_release(&gCache.ss_lock);
 
+	if(found_index == -1) {
+		found_index = cache_evict();
+		memcpy(data, &gCache.cache_aux[found_index], sizeof(sector_supl_t));
+		gCache.cache_aux[i].pinned++;
+		gCache.cache_aux[i].present = false;
+		found_index = i;
+	}
+	
+	return found_index;
 }
 
 
 void cache_atomic_set_supl_data_and_unpin(int cache_sector_index, sector_supl_t *data) {
-
+	lock_acquire(&gCache.ss_lock);
+	//sanity checks
+	ASSERT(cache_sector_index >= 0 && cache_sector_index < CACHE_SIZE_IN_SECTORS);
+	ASSERT(gCache.cache_aux[cache_sector_index].pinned);
+	memcpy(&gCache.cache_aux[cache_sector_index], data, sizeof(sector_supl_t));
+	gCache.cache_aux[cache_sector_index].pinned--;
+	lock_release(&gCache.ss_lock);
 }
 
 void cache_read_internal(int cache_sector_index, sid_t sector_index) {
