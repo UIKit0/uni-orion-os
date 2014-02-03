@@ -56,7 +56,7 @@ if [ $# -ne 1 ]; then
 fi;
 
 test_name=$1
-tests_make_file=`grep -r -l --include="*.tests" $test_name ../tests`
+tests_make_file=`grep -r -l $test_name""_SRC ../tests`
 
 if [ ! $tests_make_file ]; then
     echo

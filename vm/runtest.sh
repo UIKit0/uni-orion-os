@@ -56,18 +56,19 @@ if [ $# -ne 1 ]; then
 fi;
 
 test_name=$1
+tests_make_file=`grep -r -l --include="*.tests" $test_name""_SRC ../tests`
 
-if ! make ; then
-    exit 1
-fi
-
-BINARY=`find ./build/tests/ -name $test_name.o`
-if [ ! "$BINARY" ]; then
+if [ ! $tests_make_file ]; then
     echo
     echo "Test \"$test_name\" was not found. Check for spelling mistakes"
     echo
     exit
 fi
- 
-rm "`dirname $BINARY`/$test_name.output"
-make "`dirname $BINARY`/$test_name.result" $PINTOS_OPTS $VERBOSE_OPT $TIMEOUT_OPTS
+
+if ! make ; then
+    exit 1
+fi
+
+tests_dir="build/"`dirname ${tests_make_file#../}`
+rm "$tests_dir/$test_name.output"
+make "$tests_dir/$test_name.result" $PINTOS_OPTS $VERBOSE_OPT $TIMEOUT_OPTS
