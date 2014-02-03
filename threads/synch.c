@@ -225,14 +225,21 @@ bool lock_try_acquire (struct lock *lock)
     ASSERT(lock != NULL);
     ASSERT(!lock_held_by_current_thread(lock));
 
-    // TODO: check if this requires disabling the interrupts
+    bool success = false;
+    int old_level = intr_disable();
+
 
     if (lock->holder == NULL)
     {
+    	// we have the lock
+    	list_push_back(&thread_current()->owned_locks,  &lock->elem);
         lock->holder = thread_current();
-        return true;
+        success = true;
     }
-    return false;
+
+    intr_set_level(old_level);
+
+    return success;
 }
 
 /* Releases LOCK, which must be owned by the current thread.
