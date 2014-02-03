@@ -4,6 +4,7 @@
 #include <threads/malloc.h>
 #include <devices/timer.h>
 #include <lib/string.h>
+#include "filesys.h"
 /**
 	compilation options
 */
@@ -173,7 +174,7 @@ void cache_dump_all(void) {
 }
 
 void cache_dump_entry(int index) {
-	//writeback
+	block_write( fs_device, index, gCache.cache[index].data );
 }
 
 int cache_lru(void) {
@@ -239,5 +240,5 @@ void cache_atomic_set_supl_data_and_unpin(int cache_sector_index, sector_supl_t 
 }
 
 void cache_read_internal(int cache_sector_index, sid_t sector_index) {
-
+	block_read( fs_device, sector_index, gCache.cache[cache_sector_index].data);
 }
