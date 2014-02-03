@@ -15,10 +15,6 @@
 //#define FILESYS_USE_CACHE
 //#undef FILESYS
 
-// It doesn't work to add this define in Make.vars
-// So I add it here for the moment
-#define FILESYS_EXTEND_FILES
-
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
@@ -464,7 +460,11 @@ get_sector( const struct inode_disk* disk_inode, int n )
     {
       //In case it pass over all data sector, it starts to read from next inode_disk
       contor = 0;
+#ifndef FILESYS_USE_CACHE
       block_read( fs_device, aux->next_sector, aux );
+#else
+      cache_read( aux->next_sector, aux, 0, BLOCK_SECTOR_SIZE );
+#endif
     }
  }
 
@@ -500,7 +500,11 @@ get_size ( struct inode_disk* disk_inode )
     {
       //If it reads all data sectors, reads next_sector.
       contor = 0;
+#ifndef FILESYS_USE_CACHE
       block_read( fs_device, aux->next_sector, aux );  
+#else
+      cache_read( aux->next_sector, aux, 0, BLOCK_SECTOR_SIZE );
+#endif
     }
   }
   return size;
@@ -513,7 +517,11 @@ get_last_inode_disk( struct inode_disk* disk_inode )
   struct inode_disk* aux = disk_inode;
   while ( aux->next_sector != NULL_SECTOR )
   {
+#ifndef FILESYS_USE_CACHE
     block_read( fs_device, aux->next_sector, aux );
+#else
+    cache_read( aux->next_sector, aux, 0, BLOCK_SECTOR_SIZE );
+#endif
   }
   return aux;
 }
@@ -566,9 +574,19 @@ try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
           new_inode_disk = calloc( 1, sizeof * new_inode_disk );
           new_inode_disk->magic = INODE_MAGIC;
           free_map_allocate( 1, &disk_aux->next_sector );
+#ifndef FILESYS_USE_CACHE
           block_write( fs_device, disk_aux->next_sector, new_inode_disk );
+#else
+          cache_write( disk_aux->next_sector, new_inode_disk, 0, BLOCK_SECTOR_SIZE );
+#endif
+
           free( new_inode_disk );
+
+#ifndef FILESYS_USE_CACHE
           block_read( fs_device, disk_aux->next_sector, disk_aux );
+#else
+          cache_read( disk_aux->next_sector, disk_aux, 0, BLOCK_SECTOR_SIZE );
+#endif
         }
       }
     }
