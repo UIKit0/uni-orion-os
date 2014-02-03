@@ -227,7 +227,11 @@ inode_close (struct inode *inode)
                {
                 //If contor reach the size of the array
                 //Then read next_sector
+#ifndef FILESYS_USE_CACHE
                 block_read( fs_device, disk_inode.next_sector, &disk_inode );
+#else
+                cache_read( disk_inode.next_sector, &disk_inode, 0, BLOCK_SECTOR_SIZE );
+#endif
                }
             }
           }while ( disk_inode.next_sector != NULL_SECTOR );
