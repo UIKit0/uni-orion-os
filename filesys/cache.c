@@ -4,6 +4,8 @@
 #include <threads/malloc.h>
 #include <devices/timer.h>
 #include <lib/string.h>
+#include "filesys.h"
+#include "free-map.h"
 /**
 	compilation options
 */
@@ -79,6 +81,7 @@ void cache_main(void *aux UNUSED);
 */
 buffer_cache gCache;
 bool gIsCacheThreadRunning;
+int gLruCursor;
 
 void cache_write(sid_t index, void *buffer, int offset, int size) {
 	sector_supl_t info;
@@ -144,6 +147,7 @@ void cache_init(void) {
 		gCache.cache_aux[i].pinned = 0;
 	}
 	gIsCacheThreadRunning = true;
+	gLruCursor = 0;
 	thread_create ("cache_thread", 0, cache_main, NULL);
 }
 
@@ -173,11 +177,30 @@ void cache_dump_all(void) {
 }
 
 void cache_dump_entry(int index) {
-	//writeback
+	block_write( fs_device, index, gCache.cache[index].data );
+}
+
+int advance(int);
+int advance(int glru) {
+	return (glru + 1) % CACHE_SIZE_IN_SECTORS;
+}
+
+int retreat(int);
+int retreat(int glru) {
+	return (glru + CACHE_SIZE_IN_SECTORS - 1) % CACHE_SIZE_IN_SECTORS;
 }
 
 int cache_lru(void) {
-	return 0;
+	int it, end = retreat(gLruCursor);	
+	for(it = gLruCursor; it != end; it = advance(it)) {
+		if(!gCache.cache_aux[it].pinned &&
+			!gCache.cache_aux[it].accessed &&
+			!gCache.cache_aux[it].dirty) {
+			lock_release(&gCache.ss_lock);
+			return it;
+		}
+	}
+	ASSERT(!"no more free cache pages");
 }
 
 void cache_read_ahead_internal(sid_t index) {
@@ -239,5 +262,5 @@ void cache_atomic_set_supl_data_and_unpin(int cache_sector_index, sector_supl_t 
 }
 
 void cache_read_internal(int cache_sector_index, sid_t sector_index) {
-
+	block_read( fs_device, sector_index, gCache.cache[cache_sector_index].data);
 }
