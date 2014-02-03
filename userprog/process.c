@@ -521,13 +521,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+  filesys_lock();
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
-
-  filesys_lock();
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -622,14 +622,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Set up stack. */
   if (!setup_stack (esp))
+  {
+	filesys_lock();
     goto done;
+  }
+  else
+	  filesys_lock();
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
 
-  filesys_lock();
  done:
   if(success) {
     process_current()->exe_file = file;
