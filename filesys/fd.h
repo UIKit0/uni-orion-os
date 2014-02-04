@@ -23,6 +23,8 @@ struct fd_list_link {
 		struct file *file;
 		struct dir *dir;
 	}
+#else
+	struct file* file;
 #endif
 	bool mapped;
 };
