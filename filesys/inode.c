@@ -122,7 +122,7 @@ inode_create (block_sector_t sector, off_t length)
 #ifdef FILESYS_EXTEND_FILES
       init_disk_inode( disk_inode );
       disk_inode->file_total_size = length;
-      disk_inode->length[0] = length / BLOCK_SECTOR_SIZE; //
+      disk_inode->length[0] = sectors; //
       if (free_map_allocate (sectors, &disk_inode->start[0]))
 #else
 	  disk_inode->magic = INODE_MAGIC;
