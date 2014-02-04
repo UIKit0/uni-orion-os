@@ -18,6 +18,7 @@ bool path_is_relative(char *path) {
 }
 
 void path_next_entry(char *path, char *entry, int max_entry_length, int *offset) {
+	// printf("Entering path_next_entry");
 	int length = 0;
 	char *entry_iterator = entry;
 	char *path_iterator = path;
@@ -29,6 +30,7 @@ void path_next_entry(char *path, char *entry, int max_entry_length, int *offset)
 	}
 
 	while (*path_iterator != '\0' && *path_iterator != '/' && length < max_entry_length) {
+		// printf("%c", *path_iterator);
 		*(entry_iterator++) = *(path_iterator++);
 		length += 1;
 		*offset += 1;
@@ -40,6 +42,7 @@ void path_next_entry(char *path, char *entry, int max_entry_length, int *offset)
 	}
 
 	*entry_iterator = '\0';
+	// printf("Exiting path_next_entry");
 }
 
 void path_split_last(char *path, char *sub_path, char *last_entry, int max_entry_length) {
@@ -84,6 +87,9 @@ void test_path_parse() {
 
 	assert(index == 7);
 	assert(strcmp(entries[index], entry) == 0);
+
+	path_next_entry("binary-name", entry, 14, &offset);
+	assert(strcmp(entry, "binary-name") == 0);
 }
 
 void test_path_type() {

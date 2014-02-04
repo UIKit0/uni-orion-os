@@ -22,6 +22,7 @@ static void do_format (void);
  */
 void filesys_init(bool format) 
 {
+    printf("Initializing filesystem.\n");
     fs_device = block_get_role(BLOCK_FILESYS);
 
     if (fs_device == NULL)

@@ -253,7 +253,6 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 
 #ifdef FILESYS_SUBDIRS
 struct inode *dir_open_from_path(char *path, bool *is_dir) {
-    printf("Opening directory from path: %s\n", path);
     struct dir *current_dir;
     char entry_name_buffer[NAME_MAX + 1];
     int offset = 0;
@@ -261,15 +260,14 @@ struct inode *dir_open_from_path(char *path, bool *is_dir) {
 
     // initialize the current directory
     if (path_is_relative(path)) {
-        printf("Relative directory: %s\n", process_current()->working_directory);
-        current_dir = process_current()->working_directory;
+        current_dir = process_working_directory(process_current());
     } else {
         current_dir = root_dir;
     }
 
     // walk the path
     while (*(path + offset) != '\0') {
-        path_next_entry(path, entry_name_buffer, NAME_MAX, &offset);
+        path_next_entry(path + offset, entry_name_buffer, NAME_MAX, &offset);
 
         // handle parent directory
         if (strcmp(entry_name_buffer, "..") == 0) {
@@ -286,7 +284,7 @@ struct inode *dir_open_from_path(char *path, bool *is_dir) {
                     current_dir = dir_open(inode_open(dir_entry_buffer.inode_sector));
                     free(old_dir);
                 } else {
-                    path_next_entry(path, entry_name_buffer, NAME_MAX, &offset);
+                    path_next_entry(path + offset, entry_name_buffer, NAME_MAX, &offset);
                     if (entry_name_buffer[0] == '\0') {
                         *is_dir = false;
                         return inode_open(dir_entry_buffer.inode_sector);

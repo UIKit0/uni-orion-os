@@ -131,7 +131,7 @@ void init_master_process( process_t* proc) {
   proc->exe_file = NULL;
 
 #ifdef FILESYS_SUBDIRS
-  proc->working_directory = dir_open_root(); 
+  proc->working_directory = NULL; 
 #endif
 
   list_init( &proc->owned_file_descriptors);
@@ -518,7 +518,6 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
-  printf("Loading process from file: %s\n", file_name);
 
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -1032,5 +1031,15 @@ void preload_and_pin_pages(char *buffer, size_t size, frame** frames)
 
 		start += PGSIZE;
 	}
+}
+#endif
+
+#ifdef FILESYS_SUBDIRS
+struct dir *process_working_directory(const process_t *process) {
+    if (process->working_directory == NULL) {
+        return dir_open_root();
+    } else {
+        return process->working_directory;
+    }
 }
 #endif

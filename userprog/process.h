@@ -71,5 +71,9 @@ process_t * find_process(pid_t pid);
   bool stack_growth(int nr_of_pages);
 #endif
 
+#ifdef FILESYS_SUBDIRS
+struct dir *process_working_directory(const process_t *process);
+#endif
+
 
 #endif /* userprog/process.h */
