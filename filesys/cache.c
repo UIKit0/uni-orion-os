@@ -170,7 +170,8 @@ void cache_close(void) {
 		free(gCache.cache_aux[i].s_lock);
 		memset(&gCache.cache_aux[i], 0, sizeof(sector_supl_t));
 		
-		gCache.cache_aux[i].present = false;	
+		gCache.cache_aux[i].present = false;
+		gCache.cache_aux[i].dirty = false;
 		gCache.cache_aux[i].s_lock = NULL;
 	}
 	lock_release(&gCache.ss_lock);
@@ -186,7 +187,10 @@ void cache_dump_all(void) {
 }
 
 void cache_dump_entry(int index) {
-	block_write( fs_device, index, gCache.cache[index].data );
+	if(gCache.cache_aux[index].dirty) {
+		ASSERT(gCache.cache_aux[index].present);
+		block_write( fs_device, index, gCache.cache[index].data );
+	}
 }
 
 int advance(int);
