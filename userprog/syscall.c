@@ -183,7 +183,6 @@ static void syscall_open(struct intr_frame *f) {
 		return;
 	}
 
-	
 	filesys_lock();
 	struct file *file = filesys_open(file_name);
 	filesys_unlock();
@@ -191,7 +190,6 @@ static void syscall_open(struct intr_frame *f) {
 		f->eax = -1;
 		return;
 	}
-
 
 	// get a new file_descriptor
 	int fd = fd_create();
@@ -353,7 +351,7 @@ static void syscall_close(struct intr_frame *f) {
 		file_close(link->file);
 	}	
 	filesys_unlock();
-	fd_remove_file(fd);
+	fd_close(fd);
 }
 
 /* Start another process. */
