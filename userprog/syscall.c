@@ -33,13 +33,21 @@ static void syscall_seek(struct intr_frame *f);
 static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
 
+#ifdef FILESYS_SUBDIRS
+static void syscall_chdir(struct intr_frame *f);
+static void syscall_mkdir(struct intr_frame *f);
+static void syscall_readdir(struct intr_frame *f);
+static void syscall_isdir(struct intr_frame *f);
+static void syscall_inumber(struct intr_frame *f);
+#endif
+
 #ifdef VM
 static void syscall_mmap(struct intr_frame *f);
 static void syscall_munmap(struct intr_frame *f);
 #endif
 
 #ifdef VM
-	static supl_pte* gPages[1024];
+static supl_pte* gPages[1024];
 #endif
 
 /* Initializes the syscall handler. */
@@ -439,6 +447,29 @@ static void syscall_munmap(struct intr_frame *f) {
 }
 #endif
 
+#ifdef FILESYS_SUBDIRS
+static void syscall_chdir(struct intr_frame *f) {
+	char *path = (char*) ((int*)f->esp)[1];
+}
+
+static void syscall_mkdir(struct intr_frame *f) {
+	char *path = (char*) ((int*)f->esp)[1];
+}
+
+static void syscall_readdir(struct intr_frame *f) {
+	int fd = (int)((int*)f->esp)[1];
+	char *name = (char*) ((int*)f->esp)[2];
+}
+
+static void syscall_isdir(struct intr_frame *f) {
+	int fd = (int)((int*)f->esp)[1];
+}
+
+static void syscall_inumber(struct intr_frame *f) {
+	int fd = (int)((int*)f->esp)[1];
+}
+#endif
+
 static void syscall_handler (struct intr_frame *f) 
 {
 	if(!is_valid_user_address_range_read(f->esp, 4)) {
@@ -496,6 +527,23 @@ static void syscall_handler (struct intr_frame *f)
 			break;
 		case SYS_MUNMAP:
 			syscall_munmap(f);
+			break;
+#endif
+#ifdef FILESYS_SUBDIRS
+    	case SYS_CHDIR:
+    		syscall_chdir(f);
+    		break;
+    	case SYS_MKDIR:
+    		syscall_mkdir(f);
+    		break;
+    	case SYS_READDIR:
+    		syscall_readdir(f);
+    		break;
+    	case SYS_ISDIR:
+    		syscall_isdir(f);
+    		break;
+		case SYS_INUMBER:
+			syscall_inumber(f);
 			break;
 #endif
 		default:

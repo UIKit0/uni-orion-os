@@ -61,6 +61,40 @@ struct file *fd_get_file(int fd) {
 	return NULL;
 }
 
+#ifdef FILESYS_SUBDIRS
+
+/*
+ *	Tests if the file descriptor manages a directory or a file.
+ */
+bool fd_is_directory(int fd) {
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
+		if (link->fd == fd) {
+			// TODO: Implement
+		}
+	}
+	// TODO: Implement
+}
+
+/**
+ *	Returns the directory managed by the file descriptor
+ */
+struct dir *fd_get_dir(int fd) {
+	struct list* file_descriptors = &process_current()->owned_file_descriptors;
+	struct list_elem *e;
+	for (e = list_begin(file_descriptors); e != list_end(file_descriptors); e = list_next(e)){
+		struct fd_list_link *link = list_entry(e, struct fd_list_link, l_elem);
+		if (link->fd == fd) {
+			// TODO: Implement
+		}
+	}
+	// TODO: Implement
+}
+
+#endif
+
 /*
  *	Returns the list element that links this file descriptor;
  */
