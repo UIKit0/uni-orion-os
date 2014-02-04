@@ -60,11 +60,11 @@ struct inode
 };
 
 #ifdef FILESYS_EXTEND_FILES
-static block_sector_t get_sector( const struct inode_disk* , int );
-static struct inode_disk* get_last_inode_disk( struct inode_disk* );
-static bool extend_inode( struct inode*, off_t );
-static bool try_allocate( struct inode_disk*, size_t );
-static void init_disk_inode( struct inode_disk* disk_inode );
+block_sector_t get_sector( const struct inode_disk* , int );
+struct inode_disk* get_last_inode_disk( struct inode_disk* );
+bool extend_inode( struct inode*, off_t );
+bool try_allocate( struct inode_disk*, size_t );
+void init_disk_inode( struct inode_disk* disk_inode );
 #endif
 
 /* Returns the number of sectors to allocate for an inode SIZE bytes long. */
@@ -663,7 +663,7 @@ bool try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
   return false;
 }
 
-static void init_disk_inode( struct inode_disk* disk_inode )
+void init_disk_inode( struct inode_disk* disk_inode )
 {
   int i = 0;
   for( i = 0; i < INODE_DISK_ARRAY_SIZE; ++i )
