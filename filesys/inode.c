@@ -139,11 +139,19 @@ inode_create (block_sector_t sector, off_t length)
               size_t i;
               
               for (i = 0; i < sectors; i++) 
+  #ifdef FILESYS_EXTEND_FILES
 		#ifdef FILESYS_USE_CACHE
-            	cache_write(disk_inode->start + i, zeros, 0, BLOCK_SECTOR_SIZE );
+            	cache_write(disk_inode->start[0] + i, zeros, 0, BLOCK_SECTOR_SIZE );
 		#else
-                block_write (fs_device, disk_inode->start + i, zeros);
+                block_write (fs_device, disk_inode->start[0] + i, zeros);
 		#endif
+  #else
+    #ifdef FILESYS_USE_CACHE
+              cache_write(disk_inode->start + i, zeros, 0, BLOCK_SECTOR_SIZE );
+    #else
+                block_write (fs_device, disk_inode->start + i, zeros);
+    #endif
+  #endif
             }
           success = true; 
         } 
