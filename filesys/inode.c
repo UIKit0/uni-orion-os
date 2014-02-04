@@ -121,6 +121,7 @@ inode_create (block_sector_t sector, off_t length)
       size_t sectors = bytes_to_sectors (length);
       init_disk_inode( disk_inode );
 #ifdef FILESYS_EXTEND_FILES
+      disk_inode->file_total_size = length;
       disk_inode->length[0] = length; //
       if (free_map_allocate (sectors, &disk_inode->start[0]))
 #else
@@ -365,7 +366,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     off_t file_size = inode->data.file_total_size;
 
     off_t end = offset + size;
-    off_t start = offset < file_size ? offset : file_size;
+    off_t start = file_size;
     off_t gap = end - start;
     if ( gap > 0 )
     {
