@@ -11,7 +11,7 @@
 */
 #define CACHE_SIZE_IN_SECTORS 64
 #define SECTOR_SIZE_IN_BYTES 512
-#define DUMP_INTERVAL_TICKS 25
+#define DUMP_INTERVAL_TICKS 10
 
 /**
 	data structures
@@ -83,17 +83,19 @@ buffer_cache gCache;
 bool gIsCacheThreadRunning;
 int gLruCursor;
 
-void cache_write(sid_t index, void *buffer, int offset, int size) {
+void cache_write(sid_t index, void *buffer, int offset, int size) {	
 	sector_supl_t info;
 	int sdataIndex = cache_atomic_get_supl_data_and_pin(&info, index);
 	
 	if(info.present) {
+		//printf("cache_write present %d %d\n", index, sdataIndex);
 		info.dirty = true;
 		lock_acquire(info.s_lock);
 		memcpy(gCache.cache[info.sector_index_in_cache].data + offset, buffer, size);
 		lock_release(info.s_lock);
 	}
 	else {
+		//printf("cache_write not present %d %d\n", index, sdataIndex);
 		cache_read_internal(sdataIndex, index);
 		info.present = true;		
 		info.accessed = false;
@@ -113,12 +115,14 @@ void cache_read(sid_t index, void *buffer, int offset, int size) {
 	int sdataIndex = cache_atomic_get_supl_data_and_pin(&info, index);
 	
 	if(info.present) {
+		//printf("cache_read present %d %d\n", index, sdataIndex);
 		info.accessed = true;
 		lock_acquire(info.s_lock);
 		memcpy(buffer, gCache.cache[info.sector_index_in_cache].data + offset, size);
 		lock_release(info.s_lock);
 	}
 	else {
+		//printf("cache_read not present %d %d\n", index, sdataIndex);
 		cache_read_internal(sdataIndex, index);
 		info.present = true;		
 		info.accessed = true;
@@ -147,11 +151,13 @@ void cache_init(void) {
 		lock_init(gCache.cache_aux[i].s_lock);
 		gCache.cache_aux[i].present = false;
 		gCache.cache_aux[i].pinned = 0;
+		gCache.cache_aux[i].accessed = false;
+		gCache.cache_aux[i].dirty = false;
 	}
 	gIsCacheThreadRunning = true;
 	gLruCursor = 0;
-	printf("cache: Initialized cache with %d sectors\n", CACHE_SIZE_IN_SECTORS);
-	//thread_create ("cache_thread", 0, cache_main, NULL);
+	//printf("cache: Initialized cache with %d sectors\n", CACHE_SIZE_IN_SECTORS);
+	thread_create ("cache_thread", 0, cache_main, NULL);
 }
 
 void cache_close(void) {	
@@ -195,13 +201,20 @@ int retreat(int glru) {
 
 int cache_lru(void) {
 	int it;
+
+	for(it = 0; it != CACHE_SIZE_IN_SECTORS; ++it) {
+		if(!gCache.cache_aux[it].present)
+			return it;
+	}
+
 	for(it = gLruCursor; ; it = advance(it)) {
 		if(!gCache.cache_aux[it].pinned &&
-			!gCache.cache_aux[it].accessed) {
+			!gCache.cache_aux[it].accessed &&
+			gCache.cache_aux[it].present) {
 			return it;
 		}
 		else {
-			gCache.cache_aux[it].accessed = 0;
+			gCache.cache_aux[it].accessed = false;
 		}
 	}
 	ASSERT(!"no more free cache pages");
@@ -224,6 +237,8 @@ void cache_main(void *aux UNUSED) {
 
 int cache_evict(void) {
 	int ev_id = cache_lru();
+
+	//printf("cache_evict %d\n", ev_id);
 	cache_dump_entry(ev_id);
 	gCache.cache_aux[ev_id].present = false;
 	ASSERT(gCache.cache_aux[ev_id].pinned == 0);
@@ -244,8 +259,7 @@ int cache_atomic_get_supl_data_and_pin(sector_supl_t *data, sid_t index) {
 
 	if(found_index == -1) {
 		found_index = cache_evict();
-	}
-	
+	}	
 	gCache.cache_aux[found_index].pinned++;
 	memcpy(data, &gCache.cache_aux[found_index], sizeof(sector_supl_t));
 	lock_release(&gCache.ss_lock);	
