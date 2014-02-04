@@ -238,19 +238,18 @@ int cache_atomic_get_supl_data_and_pin(sector_supl_t *data, sid_t index) {
 	int found_index = -1;
 	for(i = 0; i < CACHE_SIZE_IN_SECTORS; ++i) {
 		if(gCache.cache_aux[i].sector_index == index) {
-			memcpy(data, &gCache.cache_aux[i], sizeof(sector_supl_t));
-			gCache.cache_aux[i].pinned++;
 			found_index = i;
+			break;
 		}
 	}
 	lock_release(&gCache.ss_lock);
 
-	if(found_index == -1) {
+	if(found_index == -1)
 		found_index = cache_evict();
-		memcpy(data, &gCache.cache_aux[found_index], sizeof(sector_supl_t));
-		gCache.cache_aux[found_index].pinned++;
-	}
 	
+	gCache.cache_aux[found_index].pinned++;
+	memcpy(data, &gCache.cache_aux[found_index], sizeof(sector_supl_t));
+
 	return found_index;
 }
 
