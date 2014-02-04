@@ -209,7 +209,7 @@ static void syscall_open(struct intr_frame *f) {
 #ifdef FILESYS_SUBDIRS
 	// TODO: Link the file or directory to the file descriptor
 #endif
-//	link->file = file;
+	link->file = file;
 	link->mapped = false;
 	list_push_back(&current->owned_file_descriptors, &(link->l_elem));
 	current->num_of_opened_files++;
@@ -233,7 +233,7 @@ static void syscall_filesize(struct intr_frame *f) {
 }
 
 /* Read from a file. */
-static void syscall_read(struct intr_frame *f) {
+void syscall_read(struct intr_frame *f) {
 	int fd = ((int*)f->esp)[1];
 	char* buffer = (char*)((int*)f->esp)[2];
 	unsigned int size = (unsigned int) ((int*)f->esp)[3];
@@ -359,7 +359,7 @@ static void syscall_close(struct intr_frame *f) {
 
 	struct fd_list_link *link = fd_get_link(fd);
 	if(link->mapped == false) {
-	//	file_close(link->file);
+		file_close(link->file);
 	}	
 	filesys_unlock();
 	fd_close(fd);
