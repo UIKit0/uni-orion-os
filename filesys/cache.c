@@ -40,6 +40,11 @@ struct buffer_cache {
 };
 typedef struct buffer_cache buffer_cache;
 
+struct read_ahead_entry {
+	struct list_elem l_elem;
+	sid_t sector_index;
+};
+typedef struct read_ahead_entry read_ahead_entry;
 
 /**
 	internal function declarations
@@ -58,7 +63,7 @@ void cache_atomic_set_supl_data_and_unpin(int cache_sector_index, sector_supl_t 
 int cache_evict(void);
 int cache_lru(void);
 void cache_read_ahead_asynch(sid_t index);
-void cache_read_ahead_internal(sid_t index);
+void cache_read_ahead_internal(void);
 
 void cache_dump_all(void);
 void cache_dump_entry(int entry_index);
@@ -67,11 +72,17 @@ void cache_read_internal(int cache_sector_index, sid_t sector_index);
 
 
 /**
-	main cache thread
+	main dump thread
 	- dumps the cache periodically
+*/
+void cache_main_dump(void *aux UNUSED);
+
+
+/**	
+	main read ahead thread
 	- processes the read_ahead requests
 */
-void cache_main(void *aux UNUSED);
+void cache_main_read_ahead(void *aux UNUSED);
 
 
 
@@ -82,6 +93,12 @@ void cache_main(void *aux UNUSED);
 buffer_cache gCache;
 bool gIsCacheThreadRunning;
 int gLruCursor;
+
+struct list gReadAheadList;
+struct lock gReadAheadLock;
+struct semaphore gReadAheadWakeUpSema;
+
+
 
 void cache_write(sid_t index, void *buffer, int offset, int size) {	
 	sector_supl_t info;
@@ -141,6 +158,9 @@ void cache_read(sid_t index, void *buffer, int offset, int size) {
 
 void cache_init(void) {
 	lock_init(&gCache.ss_lock);
+	lock_init(&gReadAheadLock);
+	list_init(&gReadAheadList);
+	sema_init(&gReadAheadWakeUpSema, 0);
 	int i;
 
 	for(i = 0; i < CACHE_SIZE_IN_SECTORS; ++i) {
@@ -157,7 +177,8 @@ void cache_init(void) {
 	gIsCacheThreadRunning = true;
 	gLruCursor = 0;
 	//printf("cache: Initialized cache with %d sectors\n", CACHE_SIZE_IN_SECTORS);
-	thread_create ("cache_thread", 0, cache_main, NULL);
+	thread_create ("cache_dump_t", 0, cache_main_dump, NULL);
+	thread_create ("cache_rh_t", 0, cache_main_read_ahead, NULL);
 }
 
 void cache_close(void) {	
@@ -178,20 +199,20 @@ void cache_close(void) {
 }
 
 void cache_dump_all(void) {
-	lock_acquire(&gCache.ss_lock);
 	int i = 0;
 	for(i = 0; i < CACHE_SIZE_IN_SECTORS; ++i) {
 		cache_dump_entry(i);
-	}
-	lock_release(&gCache.ss_lock);
+	}	
 }
 
 void cache_dump_entry(int index) {
-	if(gCache.cache_aux[index].dirty) {
-
+	lock_acquire(gCache.cache_aux[index].s_lock);
+	if(gCache.cache_aux[index].dirty) {		
+		gCache.cache_aux[index].dirty = false;	
 		ASSERT(gCache.cache_aux[index].present);
-		block_write( fs_device, gCache.cache_aux[index].sector_index, gCache.cache[index].data );
+		block_write( fs_device, gCache.cache_aux[index].sector_index, gCache.cache[index].data );		
 	}
+	lock_release(gCache.cache_aux[index].s_lock);
 }
 
 int advance(int);
@@ -225,18 +246,43 @@ int cache_lru(void) {
 	ASSERT(!"no more free cache pages");
 }
 
-void cache_read_ahead_internal(sid_t index) {
-
+void cache_read_ahead_internal(void) {
+	lock_acquire(&gReadAheadLock);
+	char dummyBuffer[16];
+	struct list* rhlist = &gReadAheadList;
+	struct list_elem *e;
+	for (e = list_begin(rhlist); e != list_end(rhlist); ){
+		read_ahead_entry *link = list_entry(e, read_ahead_entry, l_elem);
+		e = list_next(e);
+		cache_read(link->sector_index, dummyBuffer, 0, sizeof(dummyBuffer));		
+		list_remove(&link->l_elem);
+		free(link);		
+	}
+	lock_release(&gReadAheadLock);	
 }
 
 void cache_read_ahead_asynch(sid_t index) {
-
+	lock_acquire(&gReadAheadLock);
+	read_ahead_entry *entry = (read_ahead_entry*)malloc(sizeof(read_ahead_entry));
+	entry->sector_index = index;
+	list_push_back(&gReadAheadList, &(entry->l_elem));
+	lock_release(&gReadAheadLock);	
+	sema_up(&gReadAheadWakeUpSema);
 }
 
-void cache_main(void *aux UNUSED) {
+void cache_main_dump(void *aux UNUSED) {
 	while(gIsCacheThreadRunning) {
 		cache_dump_all();		
 		timer_sleep(DUMP_INTERVAL_TICKS);
+	}
+}
+//void cache_read_ahead_asynch(sid_t index);
+//void cache_read_ahead_internal(sid_t index);
+
+void cache_main_read_ahead(void *aux UNUSED) {
+	while(gIsCacheThreadRunning) {
+		sema_down(&gReadAheadWakeUpSema);
+		cache_read_ahead_internal();
 	}
 }
 
