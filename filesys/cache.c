@@ -244,6 +244,7 @@ int cache_atomic_get_supl_data_and_pin(sector_supl_t *data, sid_t index) {
 
 	if(found_index == -1) {
 		found_index = cache_evict();
+	}
 	
 	gCache.cache_aux[found_index].pinned++;
 	memcpy(data, &gCache.cache_aux[found_index], sizeof(sector_supl_t));
