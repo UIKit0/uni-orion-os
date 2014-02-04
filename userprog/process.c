@@ -102,17 +102,16 @@ void process_init(void) {
   lock_init(&pid_lock);
   lock_init(&hash_lock);  
   lock_init(&file_sys_lock);
-  hash_init(&process_table, &process_hash_func,
-    process_hash_less_func, NULL);
+  hash_init(&process_table, &process_hash_func, process_hash_less_func, NULL);
 
+  // Initial process. Father of all.
+  process_t *parent_process;
+  parent_process = (process_t *)malloc (sizeof(process_t));
+  ASSERT(parent_process);
 
-  process_t *p; //initial process. Father of all.
-  p = (process_t *)malloc (sizeof(process_t));
-  ASSERT(p);
-
-  init_master_process(p);    
-  insert_process(p);
-  thread_current()->pid = p->pid;
+  init_master_process(parent_process);    
+  insert_process(parent_process);
+  thread_current()->pid = parent_process->pid;
 }
 
 pid_t allocate_pid() {
@@ -129,7 +128,12 @@ void init_master_process( process_t* proc) {
   proc->ppid = PID_ERROR;
   proc->status = ALIVE;
   proc->exit_code = -1;
-  proc->exe_file = NULL; 
+  proc->exe_file = NULL;
+
+#ifdef FILESYS_SUBDIRS
+  proc->working_directory = dir_open_root(); 
+#endif
+
   list_init( &proc->owned_file_descriptors);
 #ifdef VM
   list_init( &proc->mmap_list);
@@ -514,6 +518,8 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
+  printf("Loading process from file: %s\n", file_name);
+
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
@@ -530,7 +536,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open_file(file_name);
     
   if (file == NULL) 
   {
@@ -637,6 +643,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   if(success) {
     process_current()->exe_file = file;
+#ifdef FILESYS_SUBDIRS
+    process_current()->working_directory = dir_parent_from_inode(file_get_inode(file));
+#endif
     file_deny_write(file);
   }
   else {

@@ -16,21 +16,30 @@ struct block *fs_device;
 
 static void do_format (void);
 
-/* Initializes the file system module.
-   If FORMAT is true, reformats the file system. */
+/**
+ * Initializes the file system module. 
+ * If FORMAT is true, reformats the file system. 
+ */
 void filesys_init(bool format) 
 {
     fs_device = block_get_role(BLOCK_FILESYS);
+
     if (fs_device == NULL)
+    {
         PANIC("No file system device found, can't initialize file system.");
+    }
 
     inode_init();
     free_map_init();
 
     if (format) 
+    {
         do_format();
+    }
 
     free_map_open();
+
+    dir_init();
 }
 
 /* Shuts down the file system module, writing any unwritten data
@@ -49,17 +58,24 @@ void filesys_done (void)
    or if internal memory allocation fails. */
 bool filesys_create (const char *name, off_t initial_size) 
 {
-  block_sector_t inode_sector = 0;
-  struct dir *dir = dir_open_root ();
-  bool success = (dir != NULL
-                  && free_map_allocate (1, &inode_sector)
-                  && inode_create (inode_sector, initial_size)
-                  && dir_add (dir, name, inode_sector));
-  if (!success && inode_sector != 0) 
-    free_map_release (inode_sector, 1);
-  dir_close (dir);
+    block_sector_t inode_sector = 0;
+    struct dir *dir = dir_open_root ();
+    bool success = (dir != NULL
+                    && free_map_allocate (1, &inode_sector)
+                    #ifdef FILESYS_SUBDIRS
+                    && inode_create (inode_sector, initial_size, inode_sector)
+                    #else
+                    && inode_create (inode_sector, initial_size)
+                    #endif
+                    && dir_add (dir, name, inode_sector));
 
-  return success;
+    if (!success && inode_sector != 0) 
+    {
+        free_map_release (inode_sector, 1);
+    }
+
+    dir_close (dir);
+    return success;
 }
 
 /* Formats the file system. */
@@ -80,28 +96,32 @@ static void do_format (void)
    otherwise.
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
-struct file *filesys_open(const char *name)
+struct file *filesys_open_file(const char *name)
 {
-    struct dir *dir = dir_open_root();
     struct inode *inode = NULL;
-
 #ifdef FILESYS_SUBDIRS
     // TODO: allow the opening of files from subdirectories
-#endif
-
+    bool is_dir;
+    inode = dir_open_from_path(name, &is_dir);
+    if (is_dir) {
+        return false;
+    } else {
+        return file_open(inode);
+    }
+#else
+    struct dir *dir = dir_open_root();
     if (dir != NULL)
         dir_lookup(dir, name, &inode);
     dir_close(dir);
-
     return file_open(inode);
+#endif
 }
 
 /* Deletes the file named NAME.
    Returns true if successful, false on failure.
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
-bool
-filesys_remove (const char *name) 
+bool filesys_remove(const char *name) 
 {
 #ifdef FILESYS_SUBDIRS
     // TODO: allow the removal of files in subdirectories
@@ -109,6 +129,5 @@ filesys_remove (const char *name)
     struct dir *dir = dir_open_root ();
     bool success = dir != NULL && dir_remove (dir, name);
     dir_close (dir); 
-
     return success;
 }
