@@ -128,14 +128,22 @@ inode_create (block_sector_t sector, off_t length)
       disk_inode->magic = INODE_MAGIC;
       if (free_map_allocate (sectors, &disk_inode->start)) 
         {
+	#ifdef FILESYS_USE_CACHE
+    	  cache_write(sector, disk_inode, 0, BLOCK_SECTOR_SIZE);
+	#else
           block_write (fs_device, sector, disk_inode);
+	#endif
           if (sectors > 0) 
             {
               static char zeros[BLOCK_SECTOR_SIZE];
               size_t i;
               
               for (i = 0; i < sectors; i++) 
+		#ifdef FILESYS_USE_CACHE
+            	cache_write(disk_inode->start + i, zeros, 0, BLOCK_SECTOR_SIZE );
+		#else
                 block_write (fs_device, disk_inode->start + i, zeros);
+		#endif
             }
           success = true; 
         } 
@@ -176,7 +184,11 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+#ifdef FILESYS_USE_CACHE
+  cache_read(inode->sector, &inode->data, 0, BLOCK_SECTOR_SIZE);
+#else
   block_read (fs_device, inode->sector, &inode->data);
+#endif
   return inode;
 }
 
@@ -286,7 +298,6 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
         {
           /* Read full sector directly into caller's buffer. */
           block_read (fs_device, sector_idx, buffer + bytes_read);
-          printf("Not through cache read\n");
         }
       else 
         {
@@ -303,7 +314,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
           memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
         }
 #else
-      cache_read(sector_idx, buffer, sector_ofs, size);
+      cache_read(sector_idx, buffer, sector_ofs, chunk_size);
 #endif
 
       
@@ -371,7 +382,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
         {
           /* Write full sector directly to disk. */
           block_write (fs_device, sector_idx, buffer + bytes_written);
-          printf("Not through cache write\n");
         }
       else 
         {
@@ -395,7 +405,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
           block_write (fs_device, sector_idx, bounce);
         }
 #else
-      cache_write(sector_idx, buffer, sector_ofs, size);
+      cache_write(sector_idx, buffer, sector_ofs, chunk_size);
 #endif
 
       /* Advance. */

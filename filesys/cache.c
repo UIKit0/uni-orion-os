@@ -84,7 +84,6 @@ bool gIsCacheThreadRunning;
 int gLruCursor;
 
 void cache_write(sid_t index, void *buffer, int offset, int size) {
-	printf("Cache write\n");
 	sector_supl_t info;
 	int sdataIndex = cache_atomic_get_supl_data_and_pin(&info, index);
 	
@@ -99,6 +98,7 @@ void cache_write(sid_t index, void *buffer, int offset, int size) {
 		info.present = true;		
 		info.accessed = false;
 		info.sector_index_in_cache = sdataIndex;
+		info.sector_index = index;
 
 		info.dirty = true;
 		lock_acquire(info.s_lock);
@@ -109,7 +109,6 @@ void cache_write(sid_t index, void *buffer, int offset, int size) {
 }
 
 void cache_read(sid_t index, void *buffer, int offset, int size) {
-	printf("Cache read\n");
 	sector_supl_t info;
 	int sdataIndex = cache_atomic_get_supl_data_and_pin(&info, index);
 	
@@ -124,6 +123,7 @@ void cache_read(sid_t index, void *buffer, int offset, int size) {
 		info.present = true;		
 		info.accessed = true;
 		info.sector_index_in_cache = sdataIndex;
+		info.sector_index = index;
 
 		info.dirty = false;
 		lock_acquire(info.s_lock);
