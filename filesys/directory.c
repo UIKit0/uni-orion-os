@@ -2,89 +2,96 @@
 #include <stdio.h>
 #include <string.h>
 #include <list.h>
+
+#include "userprog/process.h"
+
+#include "threads/malloc.h"
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
-#include "threads/malloc.h"
+#include "filesys/path.h"
 
-/* A directory. */
+/**
+ * In-memory representation of a directory. 
+ */
 struct dir 
 {
-    struct inode *inode;                /* Backing store. */
-    off_t pos;                          /* Current position. */
+    struct inode *inode;    /* Backing store. */
+    off_t pos;              /* Current position. */
 };
 
 /**
  *  Disk representation of a directory entry.
- *  Contains the sector of the data, the nam 
  */
 struct dir_entry 
 {
     block_sector_t inode_sector;        /* Sector number of header. */
     char name[NAME_MAX + 1];            /* Null terminated file name. */
-  
+    enum dir_entry_type type;           /* Type of the entry. */
     bool in_use;                        /* In use or free? */
 };
 
-/* Creates a directory with space for ENTRY_CNT entries in the
-   given SECTOR.  Returns true if successful, false on failure. */
-bool
-dir_create (block_sector_t sector, size_t entry_cnt)
+static struct dir *root_dir;
+
+void dir_init() {
+    root_dir = dir_open(inode_open(ROOT_DIR_SECTOR));
+}
+
+/**
+ * Creates a directory with space for ENTRY_CNT entries in the given SECTOR.
+ * Returns true if successful, false on failure. 
+ */
+bool dir_create (block_sector_t sector, size_t entry_count)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+    return inode_create(sector, entry_count * sizeof(struct dir_entry));
 }
 
 /* Opens and returns the directory for the given INODE, of which
    it takes ownership.  Returns a null pointer on failure. */
-struct dir *
-dir_open (struct inode *inode) 
+struct dir *dir_open (struct inode *inode) 
 {
-  struct dir *dir = calloc (1, sizeof *dir);
-  if (inode != NULL && dir != NULL)
+    struct dir *dir = calloc (1, sizeof *dir);
+    if (inode != NULL && dir != NULL)
     {
-      dir->inode = inode;
-      dir->pos = 0;
-      return dir;
+        dir->inode = inode;
+        dir->pos = 0;
+        return dir;
     }
-  else
+    else
     {
-      inode_close (inode);
-      free (dir);
-      return NULL; 
+        inode_close (inode);
+        free (dir);
+        return NULL; 
     }
 }
 
 /* Opens the root directory and returns a directory for it.
    Return true if successful, false on failure. */
-struct dir *
-dir_open_root (void)
+struct dir *dir_open_root (void)
 {
-  return dir_open (inode_open (ROOT_DIR_SECTOR));
+    return dir_open(inode_open(ROOT_DIR_SECTOR));
 }
 
 /* Opens and returns a new directory for the same inode as DIR.
    Returns a null pointer on failure. */
-struct dir *
-dir_reopen (struct dir *dir) 
+struct dir *dir_reopen (struct dir *dir) 
 {
-  return dir_open (inode_reopen (dir->inode));
+    return dir_open (inode_reopen (dir->inode));
 }
 
 /* Destroys DIR and frees associated resources. */
-void
-dir_close (struct dir *dir) 
+void dir_close (struct dir *dir) 
 {
-  if (dir != NULL)
+    if (dir != NULL)
     {
-      inode_close (dir->inode);
-      free (dir);
+        inode_close (dir->inode);
+        free (dir);
     }
 }
 
 /* Returns the inode encapsulated by DIR. */
-struct inode *
-dir_get_inode (struct dir *dir) 
+struct inode *dir_get_inode (struct dir *dir) 
 {
-  return dir->inode;
+    return dir->inode;
 }
 
 /* Searches DIR for a file with the given NAME.
@@ -92,50 +99,48 @@ dir_get_inode (struct dir *dir)
    if EP is non-null, and sets *OFSP to the byte offset of the
    directory entry if OFSP is non-null.
    otherwise, returns false and ignores EP and OFSP. */
-static bool
-lookup (const struct dir *dir, const char *name,
-        struct dir_entry *ep, off_t *ofsp) 
+static bool lookup (const struct dir *dir, const char *name, struct dir_entry *ep, off_t *ofsp) 
 {
-  struct dir_entry e;
-  size_t ofs;
-  
-  ASSERT (dir != NULL);
-  ASSERT (name != NULL);
+    struct dir_entry e;
+    size_t ofs;
 
-  size_t entry_size = sizeof e;
+    ASSERT (dir != NULL);
+    ASSERT (name != NULL);
 
-  for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == entry_size; ofs += entry_size) {
-    if (e.in_use && !strcmp (name, e.name)) {
-      if (ep != NULL)
-        *ep = e;
-      if (ofsp != NULL)
-        *ofsp = ofs;
-      return true;
+    size_t entry_size = sizeof e;
+
+    for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == entry_size; ofs += entry_size) 
+    {
+        if (e.in_use && !strcmp (name, e.name)) 
+        {
+            if (ep != NULL) *ep = e;
+            if (ofsp != NULL) *ofsp = ofs;
+            return true;
+        }
     }
-  }
 
-  return false;
+    return false;
 }
 
 /* Searches DIR for a file with the given NAME
    and returns true if one exists, false otherwise.
    On success, sets *INODE to an inode for the file, otherwise to
    a null pointer.  The caller must close *INODE. */
-bool
-dir_lookup (const struct dir *dir, const char *name,
-            struct inode **inode) 
+bool dir_lookup (const struct dir *dir, const char *name, struct inode **inode) 
 {
-  struct dir_entry e;
+    struct dir_entry e;
 
-  ASSERT (dir != NULL);
-  ASSERT (name != NULL);
+    ASSERT (dir != NULL);
+    ASSERT (name != NULL);
 
-  if (lookup (dir, name, &e, NULL))
-    *inode = inode_open (e.inode_sector);
-  else
-    *inode = NULL;
+    if (lookup (dir, name, &e, NULL))
+    {
+        *inode = inode_open (e.inode_sector);
+    } else {
+        *inode = NULL;
+    }
 
-  return *inode != NULL;
+    return *inode != NULL;
 }
 
 /* Adds a file named NAME to DIR, which must not already contain a
@@ -240,3 +245,45 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
     }
   return false;
 }
+
+#ifdef FILESYS_SUBDIRS
+struct inode *dir_open_from_path(char *path) {
+
+    struct dir *current_dir;
+    char entry_name_buffer[NAME_MAX + 1];
+    int offset = 0;
+    struct dir_entry dir_entry_buffer;
+
+    // initialize the current directory
+    if (path_is_relative(path)) {
+        current_dir = process_current()->current_directory;
+    } else {
+        current_dir = root_dir;
+    }
+
+    // walk the path
+    while (*(path + offset) != '\0') {
+        path_next_entry(path, entry_name_buffer, NAME_MAX, &offset);
+
+        // handle parent directory
+        if (strcmp(entry_name_buffer, "..") == 0) {
+            struct dir *old_dir = current_dir;
+            current_dir = dir_open(inode_parent(current_dir->inode));
+            free(old_dir);
+        } else {
+            // handle subdirectory
+            bool found = lookup(current_dir, entry_name_buffer, &dir_entry_buffer, NULL);
+
+            if (found) {
+                struct dir *old_dir = current_dir;
+                current_dir = dir_open(inode_open(dir_entry_buffer.inode_sector));
+                free(old_dir);
+            } else {
+                return NULL;
+            }
+        }
+    }
+
+    return current_dir->inode;
+}
+#endif

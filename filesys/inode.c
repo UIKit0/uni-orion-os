@@ -26,15 +26,20 @@ struct inode_disk
 #ifdef FILESYS_EXTEND_FILES
     block_sector_t start[ INODE_DISK_ARRAY_SIZE ];           /* First data sector. */
     off_t length[ INODE_DISK_ARRAY_SIZE ];                   /* File size in sectors. */
+
     off_t file_total_size;              /* total size of the file */
     block_sector_t next_sector;         /* Address of the next inode_disk */
-    unsigned magic;                     /* Magic number. */
-    uint32_t unused;                    /* Not used */
 #else
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
+#endif
+
+#ifdef FILESYS_SUBDIRS
+    block_sector_t parent_dir_inode;
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
+#else
+    unsigned magic;                     /* Magic number. */
+    int32_t unused;
 #endif
 };
 
@@ -98,13 +103,14 @@ inode_init (void)
   list_init (&open_inodes);
 }
 
-/* Initializes an inode with LENGTH bytes of data and
-   writes the new inode to sector SECTOR on the file system
-   device.
-   Returns true if successful.
-   Returns false if memory or disk allocation fails. */
-bool
-inode_create (block_sector_t sector, off_t length)
+/**
+ * Initializes an inode with LENGTH bytes of data and
+ * writes the new inode to sector SECTOR on the file system device.
+ *
+ * Returns true if successful.
+ * Returns false if memory or disk allocation fails. 
+ */
+bool inode_create (block_sector_t sector, off_t length)
 {
   struct inode_disk *disk_inode = NULL;
   bool success = false;
@@ -208,6 +214,10 @@ inode_reopen (struct inode *inode)
   if (inode != NULL)
     inode->open_cnt++;
   return inode;
+}
+
+struct inode *inode_parent(const struct inode *inode) {
+  return inode_open(inode->data.parent_dir_inode);
 }
 
 /* Returns INODE's inode number. */

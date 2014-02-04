@@ -14,6 +14,7 @@
 #define READ	1
 #define WRITE 	2
 
+/* File Descriptor. */
 struct fd_list_link {
 	struct list_elem l_elem;
 	int fd;
@@ -26,6 +27,7 @@ struct fd_list_link {
 #else
 	struct file* file;
 #endif
+	int fd;	
 	bool mapped;
 };
 

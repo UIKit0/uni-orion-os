@@ -8,7 +8,10 @@
 #include "threads/thread.h"
 #include "userprog/common.h"
 #ifdef VM
-  #include "vm/common.h"
+	#include "vm/common.h"
+#endif
+#ifdef FILESYS
+	#include "filesys/directory.h"
 #endif
 
 
@@ -32,15 +35,19 @@ struct process_t {
 	struct hash_elem h_elem;
 	/* wating semaphore instead of thread_block/unblock hackarounds */
 	struct semaphore process_semaphore;
-	/*file used for denying writes
-    and for lazy loading of executable*/
+	/*file used for denying writes and for lazy loading of executable*/
 	struct file * exe_file;
+
 #ifdef VM
 	/*Locks the resources shared by this process with more process:like mmaps, spte's*/
 	struct lock shared_res_lock;
 	//supplemental page table - needed for lazy loading
 	struct hash supl_pt;
 	struct list mmap_list;
+#endif
+
+#ifdef FILESYS
+	struct dir *current_directory;
 #endif
 };
 
