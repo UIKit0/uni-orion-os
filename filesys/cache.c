@@ -188,8 +188,9 @@ void cache_dump_all(void) {
 
 void cache_dump_entry(int index) {
 	if(gCache.cache_aux[index].dirty) {
+
 		ASSERT(gCache.cache_aux[index].present);
-		block_write( fs_device, index, gCache.cache[index].data );
+		block_write( fs_device, gCache.cache_aux[index].sector_index, gCache.cache[index].data );
 	}
 }
 
