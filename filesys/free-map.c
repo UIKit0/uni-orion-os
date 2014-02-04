@@ -73,13 +73,18 @@ void
 free_map_create (void) 
 {
   /* Create inode. */
-  if (!inode_create (FREE_MAP_SECTOR, bitmap_file_size (free_map)))
-    PANIC ("free map creation failed");
+#ifdef FILESYS_SUBDIRS
+  if (!inode_create(FREE_MAP_SECTOR, bitmap_file_size (free_map), FREE_MAP_SECTOR)) {
+#else
+  if (!inode_create (FREE_MAP_SECTOR, bitmap_file_size (free_map))) {
+#endif
+     PANIC ("free map creation failed");
+  }
 
-  /* Write bitmap to file. */
-  free_map_file = file_open (inode_open (FREE_MAP_SECTOR));
-  if (free_map_file == NULL)
-    PANIC ("can't open free map");
-  if (!bitmap_write (free_map, free_map_file))
-    PANIC ("can't write free map");
+    /* Write bitmap to file. */
+    free_map_file = file_open (inode_open (FREE_MAP_SECTOR));
+    if (free_map_file == NULL)
+        PANIC ("can't open free map");
+    if (!bitmap_write (free_map, free_map_file))
+        PANIC ("can't write free map");
 }

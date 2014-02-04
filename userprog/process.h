@@ -46,8 +46,8 @@ struct process_t {
 	struct list mmap_list;
 #endif
 
-#ifdef FILESYS
-	struct dir *current_directory;
+#ifdef FILESYS_SUBDIRS
+	struct dir *working_directory;
 #endif
 };
 

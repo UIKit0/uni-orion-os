@@ -62,7 +62,11 @@ bool filesys_create (const char *name, off_t initial_size)
     struct dir *dir = dir_open_root ();
     bool success = (dir != NULL
                     && free_map_allocate (1, &inode_sector)
+                    #ifdef FILESYS_SUBDIRS
+                    && inode_create (inode_sector, initial_size, inode_sector)
+                    #else
                     && inode_create (inode_sector, initial_size)
+                    #endif
                     && dir_add (dir, name, inode_sector));
 
     if (!success && inode_sector != 0) 
@@ -92,20 +96,25 @@ static void do_format (void)
    otherwise.
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
-struct file *filesys_open(const char *name)
+struct file *filesys_open_file(const char *name)
 {
     struct inode *inode = NULL;
-
 #ifdef FILESYS_SUBDIRS
     // TODO: allow the opening of files from subdirectories
-    // inode = dir_open_from_path(name);
-#endif
-
+    bool is_dir;
+    inode = dir_open_from_path(name, &is_dir);
+    if (is_dir) {
+        return false;
+    } else {
+        return file_open(inode);
+    }
+#else
+    struct dir *dir = dir_open_root();
     if (dir != NULL)
         dir_lookup(dir, name, &inode);
     dir_close(dir);
-
     return file_open(inode);
+#endif
 }
 
 /* Deletes the file named NAME.

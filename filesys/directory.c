@@ -26,7 +26,7 @@ struct dir_entry
 {
     block_sector_t inode_sector;        /* Sector number of header. */
     char name[NAME_MAX + 1];            /* Null terminated file name. */
-    enum dir_entry_type type;           /* Type of the entry. */
+    bool is_directory;                  /* Type of the entry. */
     bool in_use;                        /* In use or free? */
 };
 
@@ -42,7 +42,11 @@ void dir_init() {
  */
 bool dir_create (block_sector_t sector, size_t entry_count)
 {
+#ifdef FILESYS_SUBDIRS
+    return inode_create(sector, entry_count * sizeof(struct dir_entry), sector);
+#else
     return inode_create(sector, entry_count * sizeof(struct dir_entry));
+#endif
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -68,7 +72,8 @@ struct dir *dir_open (struct inode *inode)
    Return true if successful, false on failure. */
 struct dir *dir_open_root (void)
 {
-    return dir_open(inode_open(ROOT_DIR_SECTOR));
+    struct inode *root_inode = inode_open(ROOT_DIR_SECTOR);
+    return dir_open(root_inode);
 }
 
 /* Opens and returns a new directory for the same inode as DIR.
@@ -247,8 +252,8 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 }
 
 #ifdef FILESYS_SUBDIRS
-struct inode *dir_open_from_path(char *path) {
-
+struct inode *dir_open_from_path(char *path, bool *is_dir) {
+    printf("Opening directory from path: %s\n", path);
     struct dir *current_dir;
     char entry_name_buffer[NAME_MAX + 1];
     int offset = 0;
@@ -256,7 +261,8 @@ struct inode *dir_open_from_path(char *path) {
 
     // initialize the current directory
     if (path_is_relative(path)) {
-        current_dir = process_current()->current_directory;
+        printf("Relative directory: %s\n", process_current()->working_directory);
+        current_dir = process_current()->working_directory;
     } else {
         current_dir = root_dir;
     }
@@ -268,22 +274,43 @@ struct inode *dir_open_from_path(char *path) {
         // handle parent directory
         if (strcmp(entry_name_buffer, "..") == 0) {
             struct dir *old_dir = current_dir;
-            current_dir = dir_open(inode_parent(current_dir->inode));
+            current_dir = dir_parent(current_dir);
             free(old_dir);
         } else {
             // handle subdirectory
             bool found = lookup(current_dir, entry_name_buffer, &dir_entry_buffer, NULL);
 
             if (found) {
-                struct dir *old_dir = current_dir;
-                current_dir = dir_open(inode_open(dir_entry_buffer.inode_sector));
-                free(old_dir);
+                if (dir_entry_buffer.is_directory) {
+                    struct dir *old_dir = current_dir;
+                    current_dir = dir_open(inode_open(dir_entry_buffer.inode_sector));
+                    free(old_dir);
+                } else {
+                    path_next_entry(path, entry_name_buffer, NAME_MAX, &offset);
+                    if (entry_name_buffer[0] == '\0') {
+                        *is_dir = false;
+                        return inode_open(dir_entry_buffer.inode_sector);
+                    }
+                }
             } else {
                 return NULL;
             }
         }
     }
 
+    *is_dir = true;
     return current_dir->inode;
+}
+
+struct dir *dir_parent(const struct dir *dir) {
+    if (dir == root_dir) {
+        return root_dir;
+    } else {
+        return dir_open(inode_parent(dir->inode));
+    }
+}
+
+struct dir *dir_parent_from_inode(const struct inode *inode) {
+  return dir_open(inode_parent(inode));
 }
 #endif

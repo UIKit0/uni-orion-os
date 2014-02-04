@@ -83,7 +83,7 @@ struct file *fd_get_file(int fd) {
  *	Tests if the file descriptor manages a directory or a file.
  */
 bool fd_is_directory(int fd) {
-	struct fid_list_link *entry = fd_get_link(fd);
+	struct fd_list_link *entry = fd_get_link(fd);
 	if (entry == NULL) {
 		return false;
 	} else {
@@ -95,11 +95,11 @@ bool fd_is_directory(int fd) {
  *	Returns the directory managed by the file descriptor.
  */
 struct dir *fd_get_dir(int fd) {
-	struct fid_list_link *entry = fd_get_link(fd);
+	struct fd_list_link *entry = fd_get_link(fd);
 	if (entry == NULL || !entry->is_directory) {
 		return NULL;
 	} else {
-		return fd->dir;
+		return entry->dir;
 	}
 }
 
@@ -107,15 +107,15 @@ struct dir *fd_get_dir(int fd) {
  *	Returns the inode number of the file descriptor.
  */
 int fd_inode_number(int fd) {
-	struct fid_list_link *entry = fd_get_link(fd);
+	struct fd_list_link *entry = fd_get_link(fd);
 	if (entry == NULL) {
 		return -1;
 	}
 
 	if (entry->is_directory) {
-		return *dir_get_inode(entry->dir);
+		return inode_get_inumber(dir_get_inode(entry->dir));
 	} else {
-		return *file_get_inode(entry->file);
+		return inode_get_inumber(file_get_inode(entry->file));
 	}
 }
 #endif

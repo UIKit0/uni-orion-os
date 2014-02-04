@@ -37,7 +37,9 @@ bool dir_remove (struct dir *, const char *name);
 bool dir_readdir (struct dir *, char name[NAME_MAX + 1]);
 
 #ifdef FILESYS_SUBDIRS
-struct inode *dir_open_from_path(char *path);
+struct inode *dir_open_from_path(char *path, bool *is_dir);
+struct dir *dir_parent(const struct dir *);
+struct dir *dir_parent_from_inode(const struct inode *);
 #endif
 
 #endif /* filesys/directory.h */

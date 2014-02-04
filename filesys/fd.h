@@ -23,11 +23,10 @@ struct fd_list_link {
 	union {
 		struct file *file;
 		struct dir *dir;
-	}
+	};
 #else
 	struct file* file;
 #endif
-	int fd;	
 	bool mapped;
 };
 

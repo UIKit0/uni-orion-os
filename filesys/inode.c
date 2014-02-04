@@ -10,7 +10,6 @@
   #include "filesys/cache.h"
 #endif
 
-
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 #define NULL_SECTOR 0
@@ -26,40 +25,36 @@ struct inode_disk
 #ifdef FILESYS_EXTEND_FILES
     block_sector_t start[ INODE_DISK_ARRAY_SIZE ];           /* First data sector. */
     off_t length[ INODE_DISK_ARRAY_SIZE ];                   /* File size in sectors. */
-
     off_t file_total_size;              /* total size of the file */
     block_sector_t next_sector;         /* Address of the next inode_disk */
+    // 126 bytes
 #else
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
+    // 2 bytes
 #endif
 
 #ifdef FILESYS_SUBDIRS
     block_sector_t parent_dir_inode;
-    unsigned magic;                     /* Magic number. */
-#else
-    unsigned magic;                     /* Magic number. */
-    int32_t unused;
+    // 1 byte
 #endif
-};
 
+    unsigned magic;                     /* Magic number. */
+    // 1 byte
 
 #ifdef FILESYS_EXTEND_FILES
-
-static block_sector_t get_sector( const struct inode_disk* , int );
-static struct inode_disk* get_last_inode_disk( struct inode_disk* );
-bool extend_inode( struct inode*, off_t );
-static bool try_allocate( struct inode_disk*, size_t );
-
+  #ifndef FILESYS_SUBDIRS
+    int32_t unused;
+  #endif
+#else
+  #ifdef FILESYS_SUBDIRS
+    int32_t unused[124];
+  #else
+    int32_t unused[125];
+  #endif
 #endif
 
-/* Returns the number of sectors to allocate for an inode SIZE
-   bytes long. */
-static inline size_t
-bytes_to_sectors (off_t size)
-{
-return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
-}
+};
 
 /* In-memory inode. */
 struct inode 
@@ -71,6 +66,20 @@ struct inode
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /* Inode content. */
 };
+
+#ifdef FILESYS_EXTEND_FILES
+static block_sector_t get_sector( const struct inode_disk* , int );
+static struct inode_disk* get_last_inode_disk( struct inode_disk* );
+static bool extend_inode( struct inode*, off_t );
+static bool try_allocate( struct inode_disk*, size_t );
+static void init_disk_inode( struct inode_disk* disk_inode );
+#endif
+
+/* Returns the number of sectors to allocate for an inode SIZE bytes long. */
+static inline size_t bytes_to_sectors (off_t size)
+{
+  return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
+}
 
 /* Returns the block device sector that contains byte offset POS
    within INODE.
@@ -110,7 +119,11 @@ inode_init (void)
  * Returns true if successful.
  * Returns false if memory or disk allocation fails. 
  */
+#ifdef FILESYS_SUBDIRS
+bool inode_create (block_sector_t sector, off_t length, block_sector_t parent_sector)
+#else
 bool inode_create (block_sector_t sector, off_t length)
+#endif
 {
   struct inode_disk *disk_inode = NULL;
   bool success = false;
@@ -125,7 +138,17 @@ bool inode_create (block_sector_t sector, off_t length)
   if (disk_inode != NULL)
   {
       size_t sectors = bytes_to_sectors (length);
+
+#ifdef FILESYS_EXTEND_FILES
       init_disk_inode( disk_inode );
+#else
+      disk_inode->magic = INODE_MAGIC;
+#endif
+
+#ifdef FILESYS_SUBDIRS
+      disk_inode->parent_dir_inode = parent_sector;
+#endif
+
 #ifdef FILESYS_EXTEND_FILES
       disk_inode->file_total_size = length;
       disk_inode->length[0] = length / BLOCK_SECTOR_SIZE; //
@@ -216,9 +239,11 @@ inode_reopen (struct inode *inode)
   return inode;
 }
 
+#ifdef FILESYS_SUBDIRS
 struct inode *inode_parent(const struct inode *inode) {
   return inode_open(inode->data.parent_dir_inode);
 }
+#endif
 
 /* Returns INODE's inode number. */
 block_sector_t
@@ -637,7 +662,7 @@ try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
   return false;
 }
 
-void init_disk_inode( struct inode_disk* disk_inode )
+static void init_disk_inode( struct inode_disk* disk_inode )
 {
   int i = 0;
   for( i = 0; i < INODE_DISK_ARRAY_SIZE; ++i )

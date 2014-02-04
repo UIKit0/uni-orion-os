@@ -176,7 +176,6 @@ static void syscall_open(struct intr_frame *f) {
 		f->eax = -1;
 		return;
 	}
-	
 
 	if (!is_valid_user_string_read(file_name)) {
 		kill_current_process();
@@ -187,7 +186,7 @@ static void syscall_open(struct intr_frame *f) {
 #ifdef FILESYS_SUBDIRS
 	// TODO: Parse the path to see if it's a file or a directory
 #endif
-	struct file *file = filesys_open(file_name);
+	struct file *file = filesys_open_file(file_name);
 	filesys_unlock();
 	if (file == NULL){
 		f->eax = -1;

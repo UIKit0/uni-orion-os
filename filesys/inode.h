@@ -8,7 +8,11 @@
 struct bitmap;
 
 void inode_init (void);
+#ifdef FILESYS_SUBDIRS
+bool inode_create (block_sector_t, off_t, block_sector_t);
+#else
 bool inode_create (block_sector_t, off_t);
+#endif
 struct inode *inode_open (block_sector_t);
 struct inode *inode_reopen (struct inode *);
 block_sector_t inode_get_inumber (const struct inode *);
