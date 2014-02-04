@@ -184,6 +184,9 @@ static void syscall_open(struct intr_frame *f) {
 	}
 
 	filesys_lock();
+#ifdef FILESYS_SUBDIRS
+	// TODO: Parse the path to see if it's a file or a directory
+#endif
 	struct file *file = filesys_open(file_name);
 	filesys_unlock();
 	if (file == NULL){
@@ -203,6 +206,9 @@ static void syscall_open(struct intr_frame *f) {
 	}
 
 	link->fd = fd;
+#ifdef FILESYS_SUBDIRS
+	// TODO: Link the file or directory to the file descriptor
+#endif
 	link->file = file;
 	link->mapped = false;
 	list_push_back(&current->owned_file_descriptors, &(link->l_elem));
@@ -346,6 +352,11 @@ static void syscall_close(struct intr_frame *f) {
 	
 	current->num_of_opened_files--;
 	filesys_lock();
+
+#ifdef FILESYS_SUBDIRS
+	// TODO: allow the closing of subdirectories
+#endif
+
 	struct fd_list_link *link = fd_get_link(fd);
 	if(link->mapped == false) {
 		file_close(link->file);
@@ -448,23 +459,36 @@ static void syscall_munmap(struct intr_frame *f) {
 #ifdef FILESYS_SUBDIRS
 static void syscall_chdir(struct intr_frame *f) {
 	char *path = (char*) ((int*)f->esp)[1];
+
+	// TODO:
+	// 1. Parse the path to ensure it exists, and create a dir* from it
+	// 2. Assign the result to the current process working directory
 }
 
 static void syscall_mkdir(struct intr_frame *f) {
 	char *path = (char*) ((int*)f->esp)[1];
+
+	// TODO:
+	// 1. Split the path into prefix_path + entry_name
+	// 2. Ensure prefix_path exists
+	// 3. Create a directory with name entry_name in prefix_path
 }
 
 static void syscall_readdir(struct intr_frame *f) {
 	int fd = (int)((int*)f->esp)[1];
 	char *name = (char*) ((int*)f->esp)[2];
+
+	dir_readdir(fd_get_dir(fd), name);
 }
 
 static void syscall_isdir(struct intr_frame *f) {
 	int fd = (int)((int*)f->esp)[1];
+	f->eax = fd_is_directory(fd);
 }
 
 static void syscall_inumber(struct intr_frame *f) {
 	int fd = (int)((int*)f->esp)[1];
+	f->eax = fd_inode_number(fd);
 }
 #endif
 

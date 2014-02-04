@@ -28,13 +28,14 @@ struct fd_list_link {
 };
 
 int    	fd_create(void);
+void   	fd_close(int fd);
 bool   	fd_is_valid(int fd, int direction);
 struct 	file* fd_get_file(int fd);
 struct 	fd_list_link *fd_get_link(int fd);
-void   	fd_close(int fd);
 
 #ifdef FILESYS_SUBDIRS
 bool	fd_is_directory(int fd);
+struct 	dir *fd_get_dir(int fd);
 int		fd_inode_number(int fd);
 #endif
 
