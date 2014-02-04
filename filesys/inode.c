@@ -43,7 +43,7 @@ struct inode_disk
 
 static block_sector_t get_sector( const struct inode_disk* , int );
 static struct inode_disk* get_last_inode_disk( struct inode_disk* );
-static bool extend_inode( struct inode*, off_t );
+bool extend_inode( struct inode*, off_t );
 static bool try_allocate( struct inode_disk*, size_t );
 
 #endif
@@ -122,7 +122,7 @@ inode_create (block_sector_t sector, off_t length)
       init_disk_inode( disk_inode );
 #ifdef FILESYS_EXTEND_FILES
       disk_inode->file_total_size = length;
-      disk_inode->length[0] = length; //
+      disk_inode->length[0] = length / BLOCK_SECTOR_SIZE; //
       if (free_map_allocate (sectors, &disk_inode->start[0]))
 #else
       disk_inode->length = length;
@@ -245,7 +245,7 @@ inode_close (struct inode *inode)
           while ( disk_inode.start[contor] != NULL_SECTOR )
           {
              //First it release every data sector from inode
-             free_map_release ( disk_inode.start[contor], bytes_to_sectors ( disk_inode.length[contor] ) );
+             free_map_release ( disk_inode.start[contor], disk_inode.length[contor] );
              contor++;
              if ( contor == INODE_DISK_ARRAY_SIZE )
              {
@@ -370,6 +370,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     off_t gap = end - start;
     if ( gap > 0 )
     {
+      printf( "Gap larger then 0\n");
         if ( !extend_inode( inode, gap ) )
         {
           return 0;
@@ -494,7 +495,7 @@ get_sector( const struct inode_disk* disk_inode, int n )
     if ( contor < INODE_DISK_ARRAY_SIZE )
     {
       //If doesn't reach the last data sector from inode_disk
-      n -= aux->length[contor] / BLOCK_SECTOR_SIZE;
+      n -= aux->length[contor];
       contor++;
     }
     else
@@ -537,7 +538,7 @@ get_last_inode_disk( struct inode_disk* disk_inode )
   return aux;
 }
 
-static bool
+bool
 extend_inode( struct inode* inode, off_t gap )
 {
   ASSERT( gap > 0);
@@ -550,6 +551,7 @@ extend_inode( struct inode* inode, off_t gap )
   off_t file_size = inode->data.file_total_size;
   off_t sector_ofs = file_size % BLOCK_SECTOR_SIZE;
   off_t sectors = DIV_ROUND_UP( sector_ofs + gap, BLOCK_SECTOR_SIZE ) - 1;
+  printf( "Sectors %d \n", sectors );
   return sectors > 0 ? try_allocate( last_disk_inode, sectors ) : true;
 }
 
