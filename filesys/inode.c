@@ -27,31 +27,24 @@ struct inode_disk
     off_t length[ INODE_DISK_ARRAY_SIZE ];                   /* File size in sectors. */
     off_t file_total_size;              /* total size of the file */
     block_sector_t next_sector;         /* Address of the next inode_disk */
-    // 126 bytes
+    // 504 bytes
 #else
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
-    // 2 bytes
+    int32_t unused[124];
+    // 504 bytes
 #endif
 
 #ifdef FILESYS_SUBDIRS
     block_sector_t parent_dir_inode;
-    // 1 byte
+    // 4 bytes
+#else
+    int32_t unused_;
+    // 4 bytes
 #endif
 
     unsigned magic;                     /* Magic number. */
-
-#ifdef FILESYS_EXTEND_FILES
-  #ifndef FILESYS_SUBDIRS
-    int32_t unused;
-  #endif
-#else
-  #ifdef FILESYS_SUBDIRS
-    int32_t unused[124];
-  #else
-    int32_t unused[125];
-  #endif
-#endif
+    // 4 bytes
 
 };
 
@@ -145,7 +138,7 @@ bool inode_create (block_sector_t sector, off_t length)
 #ifdef FILESYS_EXTEND_FILES
       init_disk_inode( disk_inode );
       disk_inode->file_total_size = length;
-      disk_inode->length[0] = sectors; //
+      disk_inode->length[0] = sectors;
       if (free_map_allocate (sectors, &disk_inode->start[0]))
 #else
 	  disk_inode->magic = INODE_MAGIC;
@@ -401,7 +394,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     if ( gap > 0 )
     {
     	ASSERT(gap > 0);
-      printf( "Gap larger then 0\n");
+      //printf( "Gap larger then 0\n");
         if ( !extend_inode( inode, gap ) )
         {
           return 0;
@@ -592,8 +585,10 @@ bool extend_inode( struct inode* inode, off_t gap )
   //stores the remain data in it and connect the sectors.
   volatile off_t file_size = inode->data.file_total_size;
   volatile off_t sector_ofs = file_size % BLOCK_SECTOR_SIZE;
-  volatile off_t sectors = DIV_ROUND_UP( sector_ofs + gap, BLOCK_SECTOR_SIZE ) - 1;
-  printf( "Sectors %d \n", sectors );
+  volatile off_t sectors = DIV_ROUND_UP( sector_ofs + gap, BLOCK_SECTOR_SIZE );
+  if(sector_ofs > 0)
+	  sectors --;
+  //printf( "Sectors %d \n", sectors );
   return sectors > 0 ? try_allocate( last_disk_inode, sectors ) : true;
 }
 
@@ -616,7 +611,7 @@ bool try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
     if ( free_map_allocate( numberOfBlocksToAllocate, &disk_aux->start[contor] ) )
     {
       //Updates the size of the data sector
-      disk_aux->length[contor] = numberOfBlocksToAllocate * BLOCK_SECTOR_SIZE;
+      disk_aux->length[contor] = numberOfBlocksToAllocate;
 
       numberOfBlocksAllocated += numberOfBlocksToAllocate;
       if ( numberOfBlocksAllocated != blocks_number )
