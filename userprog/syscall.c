@@ -140,7 +140,7 @@ void syscall_wait(struct intr_frame *f) {
 /* Create a file. */
 static void syscall_create(struct intr_frame *f) {
 	char* file_name = (char*) ((int*)f->esp)[1];
-	int initial_size = ((int*)f->esp)[2];
+	int initial_size = 0;
 
 	if (!is_valid_user_string_read(file_name)) {
 		kill_current_process();
@@ -209,7 +209,7 @@ static void syscall_open(struct intr_frame *f) {
 #ifdef FILESYS_SUBDIRS
 	// TODO: Link the file or directory to the file descriptor
 #endif
-	link->file = file;
+//	link->file = file;
 	link->mapped = false;
 	list_push_back(&current->owned_file_descriptors, &(link->l_elem));
 	current->num_of_opened_files++;
@@ -359,7 +359,7 @@ static void syscall_close(struct intr_frame *f) {
 
 	struct fd_list_link *link = fd_get_link(fd);
 	if(link->mapped == false) {
-		file_close(link->file);
+	//	file_close(link->file);
 	}	
 	filesys_unlock();
 	fd_close(fd);
