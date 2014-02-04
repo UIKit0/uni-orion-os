@@ -194,12 +194,14 @@ int retreat(int glru) {
 }
 
 int cache_lru(void) {
-	int it, end = retreat(gLruCursor);	
-	for(it = gLruCursor; it != end; it = advance(it)) {
+	int it;
+	for(it = gLruCursor; ; it = advance(it)) {
 		if(!gCache.cache_aux[it].pinned &&
-			!gCache.cache_aux[it].accessed &&
-			!gCache.cache_aux[it].dirty) {
+			!gCache.cache_aux[it].accessed) {
 			return it;
+		}
+		else {
+			gCache.cache_aux[it].accessed = 0;
 		}
 	}
 	ASSERT(!"no more free cache pages");
