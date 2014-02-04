@@ -223,12 +223,10 @@ void cache_main(void *aux UNUSED) {
 }
 
 int cache_evict(void) {
-	lock_acquire(&gCache.ss_lock);
 	int ev_id = cache_lru();
 	cache_dump_entry(ev_id);
 	gCache.cache_aux[ev_id].present = false;
 	ASSERT(gCache.cache_aux[ev_id].pinned == 0);
-	lock_release(&gCache.ss_lock);
 	return ev_id;
 }
 
@@ -242,14 +240,14 @@ int cache_atomic_get_supl_data_and_pin(sector_supl_t *data, sid_t index) {
 			break;
 		}
 	}
-	lock_release(&gCache.ss_lock);
+	
 
-	if(found_index == -1)
+	if(found_index == -1) {
 		found_index = cache_evict();
 	
 	gCache.cache_aux[found_index].pinned++;
 	memcpy(data, &gCache.cache_aux[found_index], sizeof(sector_supl_t));
-
+	lock_release(&gCache.ss_lock);	
 	return found_index;
 }
 
