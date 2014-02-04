@@ -119,7 +119,7 @@ inode_create (block_sector_t sector, off_t length)
   if (disk_inode != NULL)
   {
       size_t sectors = bytes_to_sectors (length);
-      disk_inode->magic = INODE_MAGIC;
+      init_disk_inode( disk_inode );
 #ifdef FILESYS_EXTEND_FILES
       disk_inode->length[0] = length; //
       if (free_map_allocate (sectors, &disk_inode->start[0]))
@@ -586,7 +586,7 @@ try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
           //We have to create another inode_disk, and continue to add data in it.
           struct inode_disk* new_inode_disk = NULL;
           new_inode_disk = calloc( 1, sizeof * new_inode_disk );
-          new_inode_disk->magic = INODE_MAGIC;
+          init_disk_inode( new_inode_disk );
           free_map_allocate( 1, &disk_aux->next_sector );
 #ifndef FILESYS_USE_CACHE
           block_write( fs_device, disk_aux->next_sector, new_inode_disk );
@@ -622,6 +622,16 @@ try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
   }
 
   return false;
+}
+
+void init_disk_inode( struct inode_disk* disk_inode )
+{
+  int i = 0;
+  for( i = 0; i < INODE_DISK_ARRAY_SIZE; ++i )
+  {
+    disk_inode->start[i] = NULL_SECTOR;
+  }
+  disk_inode->magic = INODE_MAGIC;
 }
 
 #endif
