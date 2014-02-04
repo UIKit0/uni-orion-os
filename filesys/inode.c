@@ -614,10 +614,10 @@ bool try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
       disk_aux->length[contor] = numberOfBlocksToAllocate;
 
       numberOfBlocksAllocated += numberOfBlocksToAllocate;
+
       if ( numberOfBlocksAllocated != blocks_number )
       {
-        //It doesn't allocates all the blocks yet
-        contor++;
+    	contor++;
 
         if ( contor == INODE_DISK_ARRAY_SIZE )
         {
@@ -655,12 +655,7 @@ bool try_allocate( struct inode_disk* disk_inode, size_t blocks_number )
     }
   }
 
-  if ( contor == blocks_number )
-  {
-    return true;
-  }
-
-  return false;
+  return true;
 }
 
 void init_disk_inode( struct inode_disk* disk_inode )
