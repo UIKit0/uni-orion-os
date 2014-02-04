@@ -13,7 +13,7 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
-#define NULL_SECTOR -1
+#define NULL_SECTOR 0
 #define INODE_DISK_ARRAY_SIZE 62
 
 //#define FILESYS_USE_CACHE
