@@ -137,20 +137,11 @@ bool inode_create (block_sector_t sector, off_t length)
   if (disk_inode != NULL)
   {
       size_t sectors = bytes_to_sectors (length);
-<<<<<<< HEAD
-=======
-
-#ifdef FILESYS_EXTEND_FILES
-      init_disk_inode( disk_inode );
-#else
-      disk_inode->magic = INODE_MAGIC;
-#endif
 
 #ifdef FILESYS_SUBDIRS
       disk_inode->parent_dir_inode = parent_sector;
 #endif
 
->>>>>>> e5c2b89df7c40b0f3e07529f8c222a9489dd6a8e
 #ifdef FILESYS_EXTEND_FILES
       init_disk_inode( disk_inode );
       disk_inode->file_total_size = length;
