@@ -532,6 +532,7 @@ block_sector_t get_sector( const struct inode_disk* disk_inode, int n )
     //Then n is greater then the hole file
     if ( aux->start[contor] != NULL_SECTOR )
     {
+      free(aux);
       return NULL_SECTOR;
     }
 
@@ -556,10 +557,13 @@ block_sector_t get_sector( const struct inode_disk* disk_inode, int n )
  // In case it doesn't contains any data
  if ( aux->start[contor] != NULL_SECTOR )
  {
-    return aux->start[contor] + n;
+    block_sector_t sector =  aux->start[contor] + n;
+    free(aux);
+    return sector;
  }
  else
  {
+	 free(aux);
     return NULL_SECTOR;
  }
 }
