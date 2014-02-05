@@ -68,13 +68,12 @@ static bool create_inode(block_sector_t sector, size_t size, block_sector_t pare
    or if internal memory allocation fails. */
 bool filesys_create(const char *name, off_t initial_size, bool is_dir) 
 {
-#ifdef FILESYS_SUBIDRS
+#ifdef FILESYS_SUBDIRS
     // printf("filesys_create %s.\n", name);
     if (strlen(name) == 0) {
         return false;
     }
 #endif
-
     block_sector_t inode_sector = 0;
     struct dir *parent_dir = NULL;
 
@@ -94,8 +93,10 @@ bool filesys_create(const char *name, off_t initial_size, bool is_dir)
         // printf("inode: %d\n", inode_get_inumber(parent_inode));
         parent_dir = dir_open(parent_inode);
         if (parent_dir == NULL || !path_is_dir) {
+        	free(path_prefix);
             return false;
         }
+        free(path_prefix);
     }
 #else
     parent_dir = dir_open_root();
