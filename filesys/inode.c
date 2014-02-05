@@ -255,7 +255,11 @@ inode_close (struct inode *inode)
   if (--inode->open_cnt == 0)
     {
       /* Remove from inode list and release lock. */
+#ifdef FILESYS_EXTEND_FILES
       block_write( fs_device, inode->sector, &inode->data );
+#else
+      cache_write(inode->sector, &inode->data, 0, BLOCK_SECTOR_SIZE );
+#endif
       list_remove (&inode->elem);
  
       /* Deallocate blocks if removed. */
@@ -537,7 +541,7 @@ block_sector_t get_sector( const struct inode_disk* disk_inode, int n )
  {
     //In case it reach a sector that don't store any address
     //Then n is greater then the hole file
-    if ( aux->start[contor] != NULL_SECTOR )
+    if ( aux->start[contor] == NULL_SECTOR )
     {
       free(aux);
       return NULL_SECTOR;
