@@ -65,6 +65,7 @@ struct inode_disk* get_last_inode_disk( struct inode_disk* );
 bool extend_inode( struct inode*, off_t );
 bool try_allocate( struct inode_disk*, size_t );
 void init_disk_inode( struct inode_disk* disk_inode );
+static block_sector_t byte_to_sector (const struct inode *inode, off_t pos, off_t file_size);
 #endif
 
 /* Returns the number of sectors to allocate for an inode SIZE bytes long. */
@@ -78,12 +79,12 @@ static inline size_t bytes_to_sectors (off_t size)
    Returns -1 if INODE does not contain data for a byte at offset
    POS. */
 static block_sector_t
-byte_to_sector (const struct inode *inode, off_t pos) 
+byte_to_sector (const struct inode *inode, off_t pos, off_t file_size)
 {
   ASSERT (inode != NULL);
-  
+
 #ifdef FILESYS_EXTEND_FILES
-  if (pos <= inode->data.file_total_size) // length holds the total size of the file
+  if (pos <= file_size) // length holds the total size of the file
     return get_sector( &inode->data, pos / BLOCK_SECTOR_SIZE );
 #else
   if (pos < inode->data.length) // length holds the total size of the file
@@ -315,7 +316,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   while (size > 0) 
     {
       /* Disk sector to read, starting byte offset within sector. */
-      block_sector_t sector_idx = byte_to_sector (inode, offset);
+      block_sector_t sector_idx = byte_to_sector (inode, offset, inode->data.file_total_size);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
@@ -407,8 +408,13 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   while (size > 0) 
     {
       /* Sector to write, starting byte offset within sector. */
-      block_sector_t sector_idx = byte_to_sector (inode, offset);
+#ifdef FILESYS_EXTEND_FILES
+      block_sector_t sector_idx = byte_to_sector (inode, offset, file_size);
+#else
+      block_sector_t sector_idx = byte_to_sector (inode, offset, inode->data.file_total_size);
+#endif
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
+
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
 #ifdef FILESYS_EXTEND_FILES
