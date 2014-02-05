@@ -391,7 +391,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     off_t end = offset + size;
     off_t start = file_size;
     volatile int gap = end - start;
-    
+
     if ( gap > 0 )
     {
     	ASSERT(gap > 0);
@@ -560,7 +560,6 @@ block_sector_t get_sector( const struct inode_disk* disk_inode, int n )
  }
  else
  {
-    NOT_REACHED();
     return NULL_SECTOR;
  }
 }

@@ -140,11 +140,7 @@ void syscall_wait(struct intr_frame *f) {
 /* Create a file. */
 static void syscall_create(struct intr_frame *f) {
 	char* file_name = (char*) ((int*)f->esp)[1];
-#ifdef FILESYS_EXTEND_FILES
-	int initial_size = 0;
-#else
 	int initial_size = ((int*)f->esp)[2];
-#endif
 
 	if (!is_valid_user_string_read(file_name)) {
 		kill_current_process();
