@@ -35,4 +35,6 @@ struct inode *inode_parent(const struct inode *inode);
   void inode_unlock(struct inode* inode);
 #endif
 
+int inode_open_cnt(struct inode *inode);
+
 #endif /* filesys/inode.h */

@@ -30,7 +30,9 @@ void filesys_init(bool format)
         PANIC("No file system device found, can't initialize file system.");
     }
 
+#ifdef FILESYS_SYNC
     inode_global_lock_init();
+#endif
 
     inode_init();
     free_map_init();
@@ -231,6 +233,7 @@ bool filesys_remove(const char *name)
 //         printf("removing %s from dir %s", name, parent_dir);
 //         return dir_remove(parent_dir, name);
 //     }
+//     printf("removing file ")
 // #else
     struct dir *dir = dir_open_root ();
     bool success = dir != NULL && dir_remove(dir, name);

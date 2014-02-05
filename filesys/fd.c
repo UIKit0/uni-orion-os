@@ -111,7 +111,7 @@ int fd_inode_number(int fd) {
 	if (entry == NULL) {
 		return -1;
 	}
-	printf("fd_inode_number %p %d %d\n", entry, fd, entry->is_directory);
+	// printf("fd_inode_number %p %d %d\n", entry, fd, entry->is_directory);
 	if (entry->is_directory) {
 		return inode_get_inumber(dir_get_inode(entry->dir));
 	} else {

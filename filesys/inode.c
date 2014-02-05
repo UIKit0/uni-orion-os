@@ -200,6 +200,7 @@ inode_open (block_sector_t sector)
   struct list_elem *e;
   struct inode *inode;
 
+  // printf("[i] opening for sector %d\n", sector);
   /* Check whether this inode is already open. */
   for (e = list_begin (&open_inodes); e != list_end (&open_inodes);
        e = list_next (e)) 
@@ -207,11 +208,12 @@ inode_open (block_sector_t sector)
       inode = list_entry (e, struct inode, elem);
       if (inode->sector == sector) 
         {
+          // printf("[i] reopening for sector %d\n", sector);
           inode_reopen (inode);
           return inode; 
         }
     }
-
+  // printf("[i] opening new for sector %d\n", sector);
   /* Allocate memory. */
   inode = malloc (sizeof *inode);
   if (inode == NULL)
@@ -310,6 +312,10 @@ inode_close (struct inode *inode)
 
       free (inode); 
     }
+}
+
+int inode_open_cnt(struct inode *inode) {
+  return inode->open_cnt;
 }
 
 /* Marks INODE to be deleted when it is closed by the last caller who
@@ -609,16 +615,20 @@ block_sector_t get_sector( const struct inode_disk* disk_inode, int n )
 /* Get last inode_disk */
 struct inode_disk* get_last_inode_disk( struct inode_disk* disk_inode )
 {
-  struct inode_disk* aux = disk_inode;
-  while ( aux->next_sector != NULL_SECTOR )
+  struct inode_disk aux;
+
+  while ( disk_inode->next_sector != NULL_SECTOR )
   {
+
 #ifndef FILESYS_USE_CACHE
-    block_read( fs_device, aux->next_sector, aux );
+    block_read( fs_device, disk_inode->next_sector, &aux );
 #else
-    cache_read( aux->next_sector, aux, 0, BLOCK_SECTOR_SIZE );
+    cache_read( disk_inode->next_sector, &aux, 0, BLOCK_SECTOR_SIZE );
 #endif
+    disk_inode = &aux;
   }
-  return aux;
+
+  return disk_inode;
 }
 
 bool extend_inode( struct inode* inode, off_t gap )

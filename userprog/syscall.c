@@ -426,14 +426,19 @@ static void syscall_close(struct intr_frame *f) {
 		filesys_lock();
 	 #endif
 
-#ifdef FILESYS_SUBDIRS
-	// TODO: allow the closing of subdirectories
-#endif
+struct fd_list_link *link = fd_get_link(fd);
 
-	struct fd_list_link *link = fd_get_link(fd);
+#ifdef FILESYS_SUBDIRS
+	if (link->is_directory) {
+		dir_close(link->dir);
+	} else {
+#endif
 	if(link->mapped == false) {
 		file_close(link->file);
 	}	
+#ifdef FILESYS_SUBDIRS
+	}
+#endif
 	 #ifndef FILESYS_SYNC
 		filesys_unlock();
 	 #endif

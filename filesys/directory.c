@@ -93,7 +93,7 @@ struct dir *dir_open (struct inode *inode)
     struct dir *dir = calloc (1, sizeof *dir);
     if (inode != NULL && dir != NULL)
     {
-        dir->inode = inode;
+        dir->inode = inode_open(inode_get_inumber(inode));
         dir->pos = 0;
         // struct dir_list_elem elem = (dir_list_elem*)malloc(sizeof struct dir_list_elem);
         // elem->dir = dir;
@@ -284,6 +284,10 @@ dir_remove (struct dir *dir, const char *name)
   inode = inode_open (e.inode_sector);
   if (inode == NULL)
     goto done;
+
+  if (inode_open_cnt(inode) > 1) {
+    return false;
+  }
 
   /* Erase directory entry. */
   e.in_use = false;
