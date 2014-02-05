@@ -77,14 +77,12 @@ bool filesys_create(const char *name, off_t initial_size, bool is_dir)
 
     block_sector_t inode_sector = 0;
     struct dir *parent_dir = NULL;
-    char last_entry[NAME_MAX + 1];
 
 #ifdef FILESYS_SUBDIRS
     char *path_prefix = (char*)malloc(strlen(name));
-
+    char last_entry[NAME_MAX + 1];
     // 1. Split the path into prefix_path + entry_name
     path_split_last(name, path_prefix, last_entry, NAME_MAX);
-
     // printf("Path was split between %s and %s.\n", path_prefix, last_entry);
 
     if (last_entry[0] == '\0') {
@@ -99,17 +97,21 @@ bool filesys_create(const char *name, off_t initial_size, bool is_dir)
             return false;
         }
     }
+#else
+    parent_dir = dir_open_root();
 #endif
 
     // 3. Create a file with name entry_name in prefix_path
-    bool success = (free_map_allocate (1, &inode_sector)
+    bool success = (parent_dir != NULL && free_map_allocate (1, &inode_sector)
                     // && printf("Allocated sector: %d\n", inode_sector)
                     #ifdef FILESYS_SUBDIRS
                     && create_inode (inode_sector, initial_size, inode_get_inumber(dir_get_inode(parent_dir)), is_dir)
+                    && dir_add(parent_dir, last_entry, inode_sector, is_dir));
                     #else
                     && inode_create (inode_sector, initial_size)
+    				&& dir_add(parent_dir, name, inode_sector, is_dir));
                     #endif
-                    && dir_add(parent_dir, last_entry, inode_sector, is_dir));
+
 
     if (!success && inode_sector != 0) 
     {
