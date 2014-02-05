@@ -152,9 +152,13 @@ static void syscall_create(struct intr_frame *f) {
 		kill_current_process();
 		return;
 	}
-	filesys_lock();
+	 #ifndef FILESYS_SYNC
+		filesys_lock();
+	 #endif
 	bool success = filesys_create(file_name, initial_size, false);
+#ifndef FILESYS_SYNC
 	filesys_unlock();
+#endif
 	f->eax = success;
 }
 
@@ -167,9 +171,13 @@ static void syscall_remove(struct intr_frame *f) {
 		return;
 	}
 
-	filesys_lock();	
+	 #ifndef FILESYS_SYNC
+		filesys_lock();
+	 #endif
 	bool success = filesys_remove(file_name);
+#ifndef FILESYS_SYNC
 	filesys_unlock();
+#endif
 	f->eax = success;
 }
 
@@ -188,7 +196,9 @@ static void syscall_open(struct intr_frame *f) {
 		return;
 	}
 
-	filesys_lock();
+	 #ifndef FILESYS_SYNC
+		filesys_lock();
+	 #endif
 
 	struct file *file;
 #ifdef FILESYS_SUBDIRS
@@ -196,19 +206,27 @@ static void syscall_open(struct intr_frame *f) {
 	bool is_file = filesys_path_is_file(path);
 	if (is_file) {
 		file = filesys_open_file(path);
-		//printf("opening file %p with inode %d\n", file, inode_get_inumber(file_get_inode(dir)));
 	} else {
 		dir = filesys_open_dir(path);
-		//printf("opening dir %p with inode %d\n", dir, inode_get_inumber(dir_get_inode(dir)));
+	}
+	if((is_file && !file) || (!is_file && !dir))
+	{
+		f->eax = -1;
+	 #ifndef FILESYS_SYNC
+		filesys_unlock();
+	 #endif
+		return;
 	}
 #else
 	file = filesys_open_file(path);
 #endif
 
-	filesys_unlock();
+	 #ifndef FILESYS_SYNC
+		filesys_unlock();
+	 #endif
 
 #ifndef FILESYS_SUBDIRS
-	if (file == NULL){
+	if (file == NULL ){
 		f->eax = -1;
 		return;
 	}
@@ -253,9 +271,13 @@ static void syscall_filesize(struct intr_frame *f) {
 	}
 
 	struct file *file = fd_get_file(fd);
-	filesys_lock();
+	 #ifndef FILESYS_SYNC
+		filesys_lock();
+	 #endif
 	f->eax = file != NULL ? file_length(file) : 0;
-	filesys_unlock();
+	 #ifndef FILESYS_SYNC
+		filesys_unlock();
+	 #endif
 }
 
 /* Read from a file. */
@@ -286,9 +308,13 @@ void syscall_read(struct intr_frame *f) {
 	preload_and_pin_pages(buffer, size, frames);
 #endif
 
-	filesys_lock();
+	 #ifndef FILESYS_SYNC
+		filesys_lock();
+	 #endif
 	f->eax = file != NULL ? file_read(file, buffer, size) : 0;
-	filesys_unlock();
+	 #ifndef FILESYS_SYNC
+		filesys_unlock();
+	 #endif
 
 #ifdef VM
 	ft_unpin_frames(frames, nr_of_frames);
@@ -331,9 +357,13 @@ void syscall_write(struct intr_frame *f) {
 	preload_and_pin_pages(buffer, size, frames);
 #endif
 
-	filesys_lock();
+	 #ifndef FILESYS_SYNC
+		filesys_lock();
+	 #endif
 	f->eax = file != NULL ? file_write(file, buffer, size) : 0;
-	filesys_unlock();
+	 #ifndef FILESYS_SYNC
+		filesys_unlock();
+	 #endif
 
 #ifdef VM
 	ft_unpin_frames(frames, nr_of_frames);
@@ -353,9 +383,13 @@ static void syscall_seek(struct intr_frame *f) {
 
 	struct file *file = fd_get_file(fd);
 	if (file != NULL) {
+		 #ifndef FILESYS_SYNC
 		filesys_lock();
+	 #endif
 		file_seek(file, position);
+		 #ifndef FILESYS_SYNC
 		filesys_unlock();
+	 #endif
 	}
 }
 
@@ -369,9 +403,13 @@ static void syscall_tell(struct intr_frame *f) {
 	}
 
 	struct file *file = fd_get_file(fd);
-	filesys_lock();
+	 #ifndef FILESYS_SYNC
+		filesys_lock();
+	 #endif
 	f->eax = file != NULL ? file_tell(file) : 0;
-	filesys_unlock();
+	 #ifndef FILESYS_SYNC
+		filesys_unlock();
+	 #endif
 }
 
 /* Close a file. */
@@ -384,7 +422,9 @@ static void syscall_close(struct intr_frame *f) {
 	}
 	
 	current->num_of_opened_files--;
-	filesys_lock();
+	 #ifndef FILESYS_SYNC
+		filesys_lock();
+	 #endif
 
 #ifdef FILESYS_SUBDIRS
 	// TODO: allow the closing of subdirectories
@@ -394,7 +434,9 @@ static void syscall_close(struct intr_frame *f) {
 	if(link->mapped == false) {
 		file_close(link->file);
 	}	
-	filesys_unlock();
+	 #ifndef FILESYS_SYNC
+		filesys_unlock();
+	 #endif
 	fd_close(fd);
 }
 
@@ -428,10 +470,13 @@ static void syscall_mmap(struct intr_frame *f) {
 	if((int)addr % PGSIZE != 0 || addr == NULL) {
 		return;
 	}
-
+  #ifndef FILESYS_SYNC
 	filesys_lock();
+  #endif
 	int filesize = file_length(fl);
-	filesys_unlock();
+	 #ifndef FILESYS_SYNC
+		filesys_unlock();
+	 #endif
 
 	int zeroOrOne = filesize % PGSIZE ? 1 : 0;
 	int pageNumber = filesize / PGSIZE + zeroOrOne;

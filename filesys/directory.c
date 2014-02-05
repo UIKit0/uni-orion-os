@@ -10,6 +10,10 @@
 #include "filesys/inode.h"
 #include "filesys/path.h"
 
+#ifdef FILESYS_SYNC
+#include "threads/synch.h"
+#endif
+
 /**
  * In-memory representation of a directory. 
  */
@@ -49,24 +53,40 @@ void dir_init() {
  */
 bool dir_create (block_sector_t sector, size_t entry_count, block_sector_t parent)
 {
-#ifdef FILESYS_SUBDIRS
-    return inode_create(sector, entry_count * sizeof(struct dir_entry), parent);
-#else
-    return inode_create(sector, entry_count * sizeof(struct dir_entry));
-#endif
+  #ifdef FILESYS_SYNC
+	inode_global_lock();
+  #endif
+
+	bool success;
+
+  #ifdef FILESYS_SUBDIRS
+    success = inode_create(sector, entry_count * sizeof(struct dir_entry), parent);
+  #else
+    success = inode_create(sector, entry_count * sizeof(struct dir_entry));
+  #endif
+
+  #ifdef FILESYS_SYNC
+    inode_global_unlock();
+  #endif
+
+    return success;
 }
 
 /* Opens and returns the directory for the given INODE, of which
    it takes ownership.  Returns a null pointer on failure. */
 struct dir *dir_open (struct inode *inode) 
 {
+#ifdef FILESYS_SYNC
+	inode_lock(inode);
+#endif
+
     struct list_elem *e;
 
     /* Check whether this dir is already open. */
     // for (e = list_begin (&open_dirs); e != list_end (&open_dirs); e = list_next (e)) {
     //     struct dir_list_elem *elem = list_entry (e, struct dir_list_elem, elem);
     //     if (elem->dir->inode == inode) {
-    //         return elem->dir; 
+    //         return elem->dir;
     //     }
     // }
 
@@ -78,10 +98,16 @@ struct dir *dir_open (struct inode *inode)
         // struct dir_list_elem elem = (dir_list_elem*)malloc(sizeof struct dir_list_elem);
         // elem->dir = dir;
         // list_push_front(&open_dirs, &elem->elem);
+	#ifdef FILESYS_SYNC
+        inode_unlock(inode);
+	#endif
         return dir;
     }
     else
     {
+	#ifdef FILESYS_SYNC
+        inode_unlock(inode);
+	#endif
         inode_close (inode);
         free (dir);
         return NULL; 
@@ -108,9 +134,10 @@ void dir_close (struct dir *dir)
 {
     if (dir != NULL)
     {
-        inode_close (dir->inode);
+        inode_close (&(dir->inode));
         free (dir);
     }
+
 }
 
 /* Returns the inode encapsulated by DIR. */
@@ -176,6 +203,9 @@ bool dir_lookup (const struct dir *dir, const char *name, struct inode **inode)
    error occurs. */
 bool dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is_dir)
 {
+ #ifdef FILESYS_SYNC
+  inode_lock(dir->inode);
+ #endif
   struct dir_entry e;
   off_t ofs;
   bool success = false;
@@ -185,11 +215,21 @@ bool dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bo
 
   /* Check NAME for validity. */
   if (*name == '\0' || strlen (name) > NAME_MAX)
+  {
+#ifdef FILESYS_SYNC
+    inode_unlock(dir->inode);
+#endif
     return false;
+  }
 
   /* Check that NAME is not in use. */
   if (lookup (dir, name, NULL, NULL))
+  {
+#ifdef FILESYS_SYNC
+    inode_unlock(dir->inode);
+#endif
     goto done;
+  }
 
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
@@ -209,6 +249,10 @@ bool dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bo
   e.is_directory = is_dir;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
+#ifdef FILESYS_SYNC
+  inode_unlock(dir->inode);
+#endif
+
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
  done:
@@ -221,6 +265,9 @@ bool dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bo
 bool
 dir_remove (struct dir *dir, const char *name) 
 {
+#ifdef FILESYS_SYNC
+  inode_lock(dir->inode);
+#endif
   struct dir_entry e;
   struct inode *inode = NULL;
   bool success = false;
@@ -240,13 +287,20 @@ dir_remove (struct dir *dir, const char *name)
 
   /* Erase directory entry. */
   e.in_use = false;
-  if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
+#ifdef FILESYS_SYNC
+  inode_unlock(dir->inode);
+#endif
+  if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e)
     goto done;
-
+#ifdef FILESYS_SYNC
+  inode_lock(dir->inode);
+#endif
   /* Remove inode. */
   inode_remove (inode);
   success = true;
-
+#ifdef FILESYS_SYNC
+  inode_unlock(dir->inode);
+#endif
  done:
   inode_close (inode);
   return success;
@@ -258,6 +312,9 @@ dir_remove (struct dir *dir, const char *name)
 bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
+#ifdef FILESYS_SYNC
+  inode_lock(dir->inode);
+#endif
   struct dir_entry e;
 
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
@@ -266,9 +323,15 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
       if (e.in_use)
         {
           strlcpy (name, e.name, NAME_MAX + 1);
+	 #ifdef FILESYS_SYNC
+        inode_unlock(dir->inode);
+	 #endif
           return true;
-        } 
+        }
     }
+#ifdef FILESYS_SYNC
+  inode_unlock(dir->inode);
+#endif
   return false;
 }
 

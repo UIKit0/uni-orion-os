@@ -6,6 +6,7 @@
 #include "devices/block.h"
 
 struct bitmap;
+struct inode;
 
 void inode_init (void);
 #ifdef FILESYS_SUBDIRS
@@ -25,5 +26,13 @@ void inode_allow_write (struct inode *);
 off_t inode_length (const struct inode *);
 
 struct inode *inode_parent(const struct inode *inode);
+
+#ifdef FILESYS_SYNC
+  void inode_global_lock_init();
+  void inode_global_lock();
+  void inode_global_unlock();
+  void inode_lock(struct inode* inode);
+  void inode_unlock(struct inode* inode);
+#endif
 
 #endif /* filesys/inode.h */

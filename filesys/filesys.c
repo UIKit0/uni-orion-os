@@ -30,6 +30,8 @@ void filesys_init(bool format)
         PANIC("No file system device found, can't initialize file system.");
     }
 
+    inode_global_lock_init();
+
     inode_init();
     free_map_init();
 
@@ -57,7 +59,17 @@ static bool create_inode(block_sector_t sector, size_t size, block_sector_t pare
     if (is_dir) {
         return dir_create(sector, size, parent);
     } else {
-        return inode_create(sector, size, parent);
+	#ifdef FILESYS_SYNC
+	   inode_global_lock();
+	#endif
+
+	   bool success = inode_create(sector, size, parent);
+
+	#ifdef FILESYS_SYNC
+       inode_global_unlock();
+	#endif
+        return success;
+
     }
 }
 #endif

@@ -9,6 +9,9 @@
 #ifdef FILESYS_USE_CACHE
   #include "filesys/cache.h"
 #endif
+#ifdef FILESYS_SYNC
+  #include "threads/synch.h"
+#endif
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -47,6 +50,9 @@ struct inode_disk
     // 4 bytes
 
 };
+#ifdef FILESYS_SYNC
+  struct lock global_inode_lock;
+#endif
 
 /* In-memory inode. */
 struct inode 
@@ -57,6 +63,10 @@ struct inode
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /* Inode content. */
+#ifdef FILESYS_SYNC
+    struct lock inode_lock;					/* lock for inode concurrent ops */
+#endif
+
 };
 
 #ifdef FILESYS_EXTEND_FILES
@@ -177,6 +187,7 @@ bool inode_create (block_sector_t sector, off_t length)
         } 
       free (disk_inode);
   }
+
   return success;
 }
 
@@ -212,6 +223,9 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+#ifdef FILESYS_SYNC
+  lock_init(&inode->inode_lock);
+#endif
 #ifdef FILESYS_USE_CACHE
   cache_read(inode->sector, &inode->data, 0, BLOCK_SECTOR_SIZE);
 #else
@@ -401,10 +415,16 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 
     if ( gap > 0 )
     {
-    	ASSERT(gap > 0);
+	#ifdef FILESYS_SYNC
+    	lock_acquire(&inode->inode_lock);
+	#endif
+
       //printf( "Gap larger then 0\n");
         if ( !extend_inode( inode, gap ) )
         {
+		#ifdef FILESYS_SYNC
+			lock_release(&inode->inode_lock);
+		#endif
           return 0;
         }
         file_size += gap;
@@ -477,7 +497,13 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 #endif
 
 #ifdef FILESYS_EXTEND_FILES
-  inode->data.file_total_size += (gap > 0 ? gap : 0);
+  if(gap > 0)
+  {
+	  inode->data.file_total_size += gap;
+	#ifdef FILESYS_SYNC
+    	lock_release(&inode->inode_lock);
+	#endif
+  }
 #endif
 
   return bytes_written;
@@ -689,4 +715,29 @@ void init_disk_inode( struct inode_disk* disk_inode )
   disk_inode->magic = INODE_MAGIC;
 }
 
+#endif
+
+#ifdef FILESYS_SYNC
+  void inode_global_lock_init(void)
+  {
+	  lock_init(&global_inode_lock);
+  }
+
+  void inode_global_lock(void)
+  {
+	  lock_acquire(&global_inode_lock);
+  }
+
+  void inode_global_unlock()
+  {
+	  lock_release(&global_inode_lock);
+  }
+  void inode_lock(struct inode* inode)
+  {
+	  lock_acquire(&inode->inode_lock);
+  }
+  void inode_unlock(struct inode* inode)
+  {
+	   lock_release(&inode->inode_lock);
+  }
 #endif
