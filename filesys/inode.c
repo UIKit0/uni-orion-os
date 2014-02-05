@@ -256,7 +256,7 @@ inode_close (struct inode *inode)
   if (--inode->open_cnt == 0)
     {
       /* Remove from inode list and release lock. */
-#ifdef FILESYS_EXTEND_FILES
+#ifndef FILESYS_USE_CACHE
       block_write( fs_device, inode->sector, &inode->data );
 #else
       cache_write(inode->sector, &inode->data, 0, BLOCK_SECTOR_SIZE );
