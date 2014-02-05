@@ -107,6 +107,7 @@ void cache_write(sid_t index, void *buffer, int offset, int size) {
 	if(info.present) {
 		//printf("cache_write present %d %d\n", index, sdataIndex);
 		info.dirty = true;
+		info.accessed = true;
 		lock_acquire(info.s_lock);
 		memcpy(gCache.cache[info.sector_index_in_cache].data + offset, buffer, size);
 		lock_release(info.s_lock);
@@ -115,7 +116,7 @@ void cache_write(sid_t index, void *buffer, int offset, int size) {
 		//printf("cache_write not present %d %d\n", index, sdataIndex);
 		cache_read_internal(sdataIndex, index);
 		info.present = true;		
-		info.accessed = false;
+		info.accessed = true;
 		info.sector_index_in_cache = sdataIndex;
 		info.sector_index = index;
 
