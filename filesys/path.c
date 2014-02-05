@@ -10,15 +10,15 @@
 #include <assert.h>
 #endif
 
-bool path_is_relative(char *path) {
+bool path_is_relative(const char *path) {
 	if (path[0] != '\0' && path[0] != '/') {
 		return true;
 	}
-	return false;
+	return path[0] == '\0';
 }
 
-void path_next_entry(char *path, char *entry, int max_entry_length, int *offset) {
-	// printf("Entering path_next_entry");
+void path_next_entry(const char *path, char *entry, int max_entry_length, int *offset) {
+	// printf("Entering path_next_entry\n");
 	int length = 0;
 	char *entry_iterator = entry;
 	char *path_iterator = path;
@@ -42,11 +42,13 @@ void path_next_entry(char *path, char *entry, int max_entry_length, int *offset)
 	}
 
 	*entry_iterator = '\0';
-	// printf("Exiting path_next_entry");
+	// printf("Exiting path_next_entry\n");
 }
 
-void path_split_last(char *path, char *sub_path, char *last_entry, int max_entry_length) {
+void path_split_last(const char *path, char *sub_path, char *last_entry, int max_entry_length) {
 	char *entry = (char*)malloc(max_entry_length);
+	entry[0] = '\0';
+
 	int offset = 0;
 	int last_offset = 0;
 
@@ -129,6 +131,10 @@ void test_split_last() {
 	path_split_last("/test", sub_path, last_entry, 14);
 	assert(strcmp("", sub_path) == 0);
 	assert(strcmp("test", last_entry) == 0);
+
+	path_split_last("/0/0", sub_path, last_entry, 14);
+	assert(strcmp("/0", sub_path) == 0);
+	assert(strcmp("0", last_entry) == 0);
 }
 
 int main(void) {

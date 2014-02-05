@@ -13,8 +13,14 @@ struct block *fs_device;
 
 void filesys_init (bool format);
 void filesys_done (void);
-bool filesys_create (const char *name, off_t initial_size);
+bool filesys_create (const char *name, off_t initial_size, bool is_dir);
 struct file *filesys_open_file (const char *name);
 bool filesys_remove (const char *name);
+
+#ifdef FILESYS_SUBDIRS
+struct dir *filesys_open_dir(const char *path);
+bool filesys_path_exists(const char *path);
+bool filesys_path_is_file(const char *path);
+#endif
 
 #endif /* filesys/filesys.h */

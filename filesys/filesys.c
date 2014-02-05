@@ -6,7 +6,8 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
-
+#include "filesys/path.h"
+#include "threads/malloc.h"
 #ifdef FILESYS_USE_CACHE
 #include "filesys/cache.h"
 #endif
@@ -22,7 +23,6 @@ static void do_format (void);
  */
 void filesys_init(bool format) 
 {
-    printf("Initializing filesystem.\n");
     fs_device = block_get_role(BLOCK_FILESYS);
 
     if (fs_device == NULL)
@@ -53,44 +53,67 @@ void filesys_done (void)
     free_map_close ();
 }
 
+static bool create_inode(block_sector_t sector, size_t size, block_sector_t parent, bool is_dir) {
+    if (is_dir) {
+        return dir_create(sector, size, parent);
+    } else {
+        return inode_create(sector, size, parent);
+    }
+}
+
 /* Creates a file named NAME with the given INITIAL_SIZE.
    Returns true if successful, false otherwise.
    Fails if a file named NAME already exists,
    or if internal memory allocation fails. */
-bool filesys_create (const char *name, off_t initial_size) 
+bool filesys_create(const char *name, off_t initial_size, bool is_dir) 
 {
+    // printf("filesys_create %s.\n", name);
+    if (strlen(name) == 0) {
+        return false;
+    }
+
     block_sector_t inode_sector = 0;
-    struct dir *dir = dir_open_root ();
-    bool success = (dir != NULL
-                    && free_map_allocate (1, &inode_sector)
+
+    char *path_prefix = (char*)malloc(strlen(name));
+    char last_entry[NAME_MAX + 1];
+    struct dir *parent_dir = NULL;
+
+    // 1. Split the path into prefix_path + entry_name
+    path_split_last(name, path_prefix, last_entry, NAME_MAX);
+
+    // printf("Path was split between %s and %s.\n", path_prefix, last_entry);
+
+    if (last_entry[0] == '\0') {
+        return false;
+    } else {
+        // 2. Ensure prefix_path exists
+        bool path_is_dir;
+        struct inode *parent_inode = dir_open_from_path(path_prefix, &path_is_dir);
+        // printf("inode: %d\n", inode_get_inumber(parent_inode));
+        parent_dir = dir_open(parent_inode);
+        if (parent_dir == NULL || !path_is_dir) {
+            return false;
+        }
+    }
+
+    // 3. Create a file with name entry_name in prefix_path
+    bool success = (free_map_allocate (1, &inode_sector)
+                    // && printf("Allocated sector: %d\n", inode_sector)
                     #ifdef FILESYS_SUBDIRS
-                    && inode_create (inode_sector, initial_size, inode_sector)
+                    && create_inode (inode_sector, initial_size, inode_get_inumber(dir_get_inode(parent_dir)), is_dir)
                     #else
                     && inode_create (inode_sector, initial_size)
                     #endif
-                    && dir_add (dir, name, inode_sector));
+                    && dir_add(parent_dir, last_entry, inode_sector, is_dir));
 
     if (!success && inode_sector != 0) 
     {
         free_map_release (inode_sector, 1);
     }
 
-    dir_close (dir);
+    dir_close (parent_dir);
     return success;
 }
-
-/* Formats the file system. */
-static void do_format (void)
-{
-    printf ("Formatting file system...");
-    free_map_create ();
-    if (!dir_create (ROOT_DIR_SECTOR, 16)) {
-        PANIC ("root directory creation failed");
-    }
-    free_map_close ();
-    printf ("done.\n");
-}
-
 
 /* Opens the file with the given NAME.
    Returns the new file if successful or a null pointer
@@ -101,11 +124,10 @@ struct file *filesys_open_file(const char *name)
 {
     struct inode *inode = NULL;
 #ifdef FILESYS_SUBDIRS
-    // TODO: allow the opening of files from subdirectories
     bool is_dir;
     inode = dir_open_from_path(name, &is_dir);
     if (is_dir) {
-        return false;
+        return NULL;
     } else {
         return file_open(inode);
     }
@@ -118,17 +140,88 @@ struct file *filesys_open_file(const char *name)
 #endif
 }
 
+#ifdef FILESYS_SUBDIRS
+struct dir *filesys_open_dir(const char *path) {
+    // printf("> filesys_open_dir\n");
+    struct inode *inode = NULL;
+    bool is_dir;
+    inode = dir_open_from_path(path, &is_dir);
+    if (is_dir) {
+        // printf("< filesys_open_dir %d %d", is_dir, inode_get_inumber(inode));
+        return dir_open(inode);
+    } else {
+        return NULL;
+    }
+}
+
+bool filesys_path_exists(const char *path) {
+    // printf("> filesys_path_exists %s\n", path);
+    bool is_dir;
+    bool exists = dir_open_from_path(path, &is_dir) != NULL;
+    // printf("< filesys_path_exists %d\n", exists);
+    return exists;
+}
+
+bool filesys_path_is_file(const char *path) {
+    // printf("> filesys_path_is_file\n");
+    bool is_dir;
+    dir_open_from_path(path, &is_dir);
+    // printf("< filesys_path_is_file: %d\n", !is_dir);
+    return !is_dir;
+}
+#endif
+
 /* Deletes the file named NAME.
    Returns true if successful, false on failure.
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
 bool filesys_remove(const char *name) 
 {
-#ifdef FILESYS_SUBDIRS
-    // TODO: allow the removal of files in subdirectories
-#endif
+// #ifdef FILESYS_SUBDIRS
+//     if (strlen(name) == 0) {
+//         return false;
+//     }
+
+//     block_sector_t inode_sector = 0;
+
+//     char *path_prefix = (char*)malloc(strlen(name));
+//     char last_entry[NAME_MAX + 1];
+//     struct dir *parent_dir = NULL;
+
+//     // 1. Split the path into prefix_path + entry_name
+//     path_split_last(name, path_prefix, last_entry, NAME_MAX);
+
+//     // printf("Path was split between %s and %s.\n", path_prefix, last_entry);
+
+//     if (last_entry[0] == '\0') {
+//         return false;
+//     } else {
+//         // 2. Ensure prefix_path exists
+//         bool path_is_dir;
+//         struct inode *parent_inode = dir_open_from_path(path_prefix, &path_is_dir);
+//         // printf("inode: %d\n", inode_get_inumber(parent_inode));
+//         parent_dir = dir_open(parent_inode);
+//         if (parent_dir == NULL || !path_is_dir) {
+//             return false;
+//         }
+
+//         printf("removing %s from dir %s", name, parent_dir);
+//         return dir_remove(parent_dir, name);
+//     }
+// #else
     struct dir *dir = dir_open_root ();
-    bool success = dir != NULL && dir_remove (dir, name);
+    bool success = dir != NULL && dir_remove(dir, name);
     dir_close (dir); 
     return success;
+// #endif
+}
+
+/* Formats the file system. */
+static void do_format (void)
+{
+    free_map_create ();
+    if (!dir_create (ROOT_DIR_SECTOR, 16, true)) {
+        PANIC ("root directory creation failed");
+    }
+    free_map_close ();
 }

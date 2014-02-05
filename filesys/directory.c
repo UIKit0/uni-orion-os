@@ -30,20 +30,27 @@ struct dir_entry
     bool in_use;                        /* In use or free? */
 };
 
+// struct dir_list_elem {
+//     struct list_elem elem;
+//     struct dir *dir;
+// };
+
 static struct dir *root_dir;
+// static struct list open_dirs;
 
 void dir_init() {
     root_dir = dir_open(inode_open(ROOT_DIR_SECTOR));
+    // list_init(&open_dirs);
 }
 
 /**
  * Creates a directory with space for ENTRY_CNT entries in the given SECTOR.
  * Returns true if successful, false on failure. 
  */
-bool dir_create (block_sector_t sector, size_t entry_count)
+bool dir_create (block_sector_t sector, size_t entry_count, block_sector_t parent)
 {
 #ifdef FILESYS_SUBDIRS
-    return inode_create(sector, entry_count * sizeof(struct dir_entry), sector);
+    return inode_create(sector, entry_count * sizeof(struct dir_entry), parent);
 #else
     return inode_create(sector, entry_count * sizeof(struct dir_entry));
 #endif
@@ -53,11 +60,24 @@ bool dir_create (block_sector_t sector, size_t entry_count)
    it takes ownership.  Returns a null pointer on failure. */
 struct dir *dir_open (struct inode *inode) 
 {
+    struct list_elem *e;
+
+    /* Check whether this dir is already open. */
+    // for (e = list_begin (&open_dirs); e != list_end (&open_dirs); e = list_next (e)) {
+    //     struct dir_list_elem *elem = list_entry (e, struct dir_list_elem, elem);
+    //     if (elem->dir->inode == inode) {
+    //         return elem->dir; 
+    //     }
+    // }
+
     struct dir *dir = calloc (1, sizeof *dir);
     if (inode != NULL && dir != NULL)
     {
         dir->inode = inode;
         dir->pos = 0;
+        // struct dir_list_elem elem = (dir_list_elem*)malloc(sizeof struct dir_list_elem);
+        // elem->dir = dir;
+        // list_push_front(&open_dirs, &elem->elem);
         return dir;
     }
     else
@@ -154,8 +174,7 @@ bool dir_lookup (const struct dir *dir, const char *name, struct inode **inode)
    Returns true if successful, false on failure.
    Fails if NAME is invalid (i.e. too long) or a disk or memory
    error occurs. */
-bool
-dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
+bool dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is_dir)
 {
   struct dir_entry e;
   off_t ofs;
@@ -185,7 +204,9 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
       break;
 
   /* Write slot. */
+  // printf("Adding entry %s to dir, which is a %d", name, is_dir);
   e.in_use = true;
+  e.is_directory = is_dir;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
@@ -252,8 +273,21 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 }
 
 #ifdef FILESYS_SUBDIRS
-struct inode *dir_open_from_path(char *path, bool *is_dir) {
-    struct dir *current_dir;
+struct inode *dir_open_from_path(const char *path, bool *is_dir) {
+    // printf("[debug] opening path %s\n", path);
+    // printf("root dir: %p %d\n", root_dir, inode_get_inumber(dir_get_inode(root_dir)));
+
+    if (strcmp(path, "/") == 0) {
+      *is_dir = true;
+      return dir_get_inode(root_dir);
+    }
+
+    if (strcmp(path, ".") == 0) {
+      *is_dir = true;
+      return dir_get_inode(process_working_directory(process_current()));
+    }
+
+    const struct dir *current_dir;
     char entry_name_buffer[NAME_MAX + 1];
     int offset = 0;
     struct dir_entry dir_entry_buffer;
@@ -261,30 +295,44 @@ struct inode *dir_open_from_path(char *path, bool *is_dir) {
     // initialize the current directory
     if (path_is_relative(path)) {
         current_dir = process_working_directory(process_current());
+        // printf("[debug] path is relative to %x\n", inode_get_inumber(current_dir->inode));
     } else {
         current_dir = root_dir;
+        // printf("[debug] path is absolute: %d\n", inode_get_inumber(current_dir->inode));
     }
 
     // walk the path
     while (*(path + offset) != '\0') {
-        path_next_entry(path + offset, entry_name_buffer, NAME_MAX, &offset);
+        path_next_entry(path + offset, entry_name_buffer, NAME_MAX + 1, &offset);
 
         // handle parent directory
         if (strcmp(entry_name_buffer, "..") == 0) {
             struct dir *old_dir = current_dir;
             current_dir = dir_parent(current_dir);
-            free(old_dir);
+            if (old_dir != root_dir) {
+              free(old_dir);
+            }
         } else {
             // handle subdirectory
             bool found = lookup(current_dir, entry_name_buffer, &dir_entry_buffer, NULL);
 
+            if (!found) {
+               // printf("[debug] Could not find entry %s.\n", entry_name_buffer);
+            }
+
             if (found) {
+                // printf("[debug] found entry %s at inode %d.\n", entry_name_buffer, dir_entry_buffer.inode_sector);
                 if (dir_entry_buffer.is_directory) {
                     struct dir *old_dir = current_dir;
-                    current_dir = dir_open(inode_open(dir_entry_buffer.inode_sector));
-                    free(old_dir);
+                    struct inode *inode = inode_open(dir_entry_buffer.inode_sector);
+                    // printf("[debug] directory entry at inode %d.\n", inode_get_inumber(inode));
+                    current_dir = dir_open(inode);
+                    // printf("[debug] dir pointer created at %p.\n", current_dir);
+                    // if (old_dir != root_dir) {
+                    //   free(old_dir);
+                    // }
                 } else {
-                    path_next_entry(path + offset, entry_name_buffer, NAME_MAX, &offset);
+                    path_next_entry(path + offset, entry_name_buffer, NAME_MAX + 1, &offset);
                     if (entry_name_buffer[0] == '\0') {
                         *is_dir = false;
                         return inode_open(dir_entry_buffer.inode_sector);
@@ -295,7 +343,7 @@ struct inode *dir_open_from_path(char *path, bool *is_dir) {
             }
         }
     }
-
+    // printf("[debug] exiting %p %d\n", current_dir, inode_get_inumber(current_dir->inode));
     *is_dir = true;
     return current_dir->inode;
 }

@@ -11,6 +11,12 @@
 #include "filesys/file.h"
 #include "filesys/fd.h"
 
+#ifdef FILESYS_SUBDIRS
+#include "filesys/directory.h"
+#include "filesys/path.h"
+#include <string.h>
+#endif
+
 #ifdef VM
 	#include "vm/frame.h"
 	#include "vm/page.h"
@@ -147,7 +153,7 @@ static void syscall_create(struct intr_frame *f) {
 		return;
 	}
 	filesys_lock();
-	bool success = filesys_create(file_name, initial_size);
+	bool success = filesys_create(file_name, initial_size, false);
 	filesys_unlock();
 	f->eax = success;
 }
@@ -169,7 +175,7 @@ static void syscall_remove(struct intr_frame *f) {
 
 /* Open a file. */
 static void syscall_open(struct intr_frame *f) {
-	char *file_name = (char*) ((int*)f->esp)[1];
+	char *path = (char*) ((int*)f->esp)[1];
 	process_t *current = process_current();
 
 	if(current->num_of_opened_files >= MAX_OPEN_FILES_PER_PROCESS) {
@@ -177,21 +183,36 @@ static void syscall_open(struct intr_frame *f) {
 		return;
 	}
 
-	if (!is_valid_user_string_read(file_name)) {
+	if (!is_valid_user_string_read(path)) {
 		kill_current_process();
 		return;
 	}
 
 	filesys_lock();
+
+	struct file *file;
 #ifdef FILESYS_SUBDIRS
-	// TODO: Parse the path to see if it's a file or a directory
+	struct dir *dir;
+	bool is_file = filesys_path_is_file(path);
+	if (is_file) {
+		file = filesys_open_file(path);
+		printf("opening file %p with inode %d\n", file, inode_get_inumber(file_get_inode(dir)));
+	} else {
+		dir = filesys_open_dir(path);
+		printf("opening dir %p with inode %d\n", dir, inode_get_inumber(dir_get_inode(dir)));
+	}
+#else
+	file = filesys_open_file(path);
 #endif
-	struct file *file = filesys_open_file(file_name);
+
 	filesys_unlock();
+
+#ifndef FILESYS_SUBDIRS
 	if (file == NULL){
 		f->eax = -1;
 		return;
 	}
+#endif
 
 	// get a new file_descriptor
 	int fd = fd_create();
@@ -206,9 +227,15 @@ static void syscall_open(struct intr_frame *f) {
 
 	link->fd = fd;
 #ifdef FILESYS_SUBDIRS
-	// TODO: Link the file or directory to the file descriptor
-#endif
+	link->is_directory = !is_file;
+	if (is_file) {
+		link->file = file;
+	} else {
+		link->dir = dir;
+	}
+#else
 	link->file = file;
+#endif
 	link->mapped = false;
 	list_push_back(&current->owned_file_descriptors, &(link->l_elem));
 	current->num_of_opened_files++;
@@ -279,6 +306,13 @@ void syscall_write(struct intr_frame *f) {
 		return;
 	}
 	
+#ifdef FILESYS_SUBDIRS
+	if (fd_is_directory(fd)) {
+		f->eax = -1;
+		return;
+	}
+#endif
+
 	if (!fd_is_valid(fd, WRITE)) {
 		f->eax = 0;
 		return;
@@ -459,6 +493,13 @@ static void syscall_munmap(struct intr_frame *f) {
 static void syscall_chdir(struct intr_frame *f) {
 	char *path = (char*) ((int*)f->esp)[1];
 
+	if (!filesys_path_exists(path) || filesys_path_is_file(path)) {
+		f->eax = false;
+		return;
+	} else {
+		f->eax = true;
+		process_current()->working_directory = filesys_open_dir(path);
+	}
 	// TODO:
 	// 1. Parse the path to ensure it exists, and create a dir* from it
 	// 2. Assign the result to the current process working directory
@@ -467,17 +508,15 @@ static void syscall_chdir(struct intr_frame *f) {
 static void syscall_mkdir(struct intr_frame *f) {
 	char *path = (char*) ((int*)f->esp)[1];
 
-	// TODO:
-	// 1. Split the path into prefix_path + entry_name
-	// 2. Ensure prefix_path exists
-	// 3. Create a directory with name entry_name in prefix_path
+	// create a directory at path
+	f->eax = filesys_create(path, 16, true);
 }
 
 static void syscall_readdir(struct intr_frame *f) {
 	int fd = (int)((int*)f->esp)[1];
 	char *name = (char*) ((int*)f->esp)[2];
 
-	dir_readdir(fd_get_dir(fd), name);
+	f->eax = dir_readdir(fd_get_dir(fd), name);
 }
 
 static void syscall_isdir(struct intr_frame *f) {
