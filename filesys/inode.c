@@ -83,7 +83,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
   ASSERT (inode != NULL);
   
 #ifdef FILESYS_EXTEND_FILES
-  if (pos < inode->data.file_total_size) // length holds the total size of the file
+  if (pos <= inode->data.file_total_size) // length holds the total size of the file
     return get_sector( &inode->data, pos / BLOCK_SECTOR_SIZE );
 #else
   if (pos < inode->data.length) // length holds the total size of the file
@@ -391,6 +391,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     off_t end = offset + size;
     off_t start = file_size;
     volatile int gap = end - start;
+    
     if ( gap > 0 )
     {
     	ASSERT(gap > 0);
@@ -399,6 +400,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
         {
           return 0;
         }
+        file_size += gap;
     }
 #endif
 
@@ -409,7 +411,11 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
+#ifdef FILESYS_EXTEND_FILES
+      volatile off_t inode_left = file_size - offset;
+#else
       volatile off_t inode_left = inode_length (inode) - offset;
+#endif
       int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
       int min_left = inode_left < sector_left ? inode_left : sector_left;
 
