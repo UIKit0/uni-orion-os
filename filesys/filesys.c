@@ -90,12 +90,15 @@ bool filesys_create(const char *name, off_t initial_size, bool is_dir)
         // 2. Ensure prefix_path exists
         bool path_is_dir;
         struct inode *parent_inode = dir_open_from_path(path_prefix, &path_is_dir);
+        if(parent_inode == NULL)
+        	return false;
         // printf("inode: %d\n", inode_get_inumber(parent_inode));
         parent_dir = dir_open(parent_inode);
         if (parent_dir == NULL || !path_is_dir) {
         	free(path_prefix);
             return false;
         }
+
         free(path_prefix);
     }
 #else
