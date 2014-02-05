@@ -47,11 +47,11 @@ void filesys_init(bool format)
    to disk. */
 void filesys_done (void) 
 {
-#ifdef FILESYS_USE_CACHE
-    cache_close();
-#endif
     free_map_close ();
-}
+    #ifdef FILESYS_USE_CACHE
+        cache_close();
+    #endif
+}   
 #ifdef FILESYS_SUBDIRS
 static bool create_inode(block_sector_t sector, size_t size, block_sector_t parent, bool is_dir) {
     if (is_dir) {
