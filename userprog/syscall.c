@@ -196,10 +196,10 @@ static void syscall_open(struct intr_frame *f) {
 	bool is_file = filesys_path_is_file(path);
 	if (is_file) {
 		file = filesys_open_file(path);
-		printf("opening file %p with inode %d\n", file, inode_get_inumber(file_get_inode(dir)));
+		//printf("opening file %p with inode %d\n", file, inode_get_inumber(file_get_inode(dir)));
 	} else {
 		dir = filesys_open_dir(path);
-		printf("opening dir %p with inode %d\n", dir, inode_get_inumber(dir_get_inode(dir)));
+		//printf("opening dir %p with inode %d\n", dir, inode_get_inumber(dir_get_inode(dir)));
 	}
 #else
 	file = filesys_open_file(path);
