@@ -52,7 +52,7 @@ void filesys_done (void)
 #endif
     free_map_close ();
 }
-
+#ifdef FILESYS_SUBDIRS
 static bool create_inode(block_sector_t sector, size_t size, block_sector_t parent, bool is_dir) {
     if (is_dir) {
         return dir_create(sector, size, parent);
@@ -60,6 +60,7 @@ static bool create_inode(block_sector_t sector, size_t size, block_sector_t pare
         return inode_create(sector, size, parent);
     }
 }
+#endif
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
    Returns true if successful, false otherwise.
@@ -67,16 +68,19 @@ static bool create_inode(block_sector_t sector, size_t size, block_sector_t pare
    or if internal memory allocation fails. */
 bool filesys_create(const char *name, off_t initial_size, bool is_dir) 
 {
+#ifdef FILESYS_SUBIDRS
     // printf("filesys_create %s.\n", name);
     if (strlen(name) == 0) {
         return false;
     }
+#endif
 
     block_sector_t inode_sector = 0;
-
-    char *path_prefix = (char*)malloc(strlen(name));
-    char last_entry[NAME_MAX + 1];
     struct dir *parent_dir = NULL;
+    char last_entry[NAME_MAX + 1];
+
+#ifdef FILESYS_SUBDIRS
+    char *path_prefix = (char*)malloc(strlen(name));
 
     // 1. Split the path into prefix_path + entry_name
     path_split_last(name, path_prefix, last_entry, NAME_MAX);
@@ -95,6 +99,7 @@ bool filesys_create(const char *name, off_t initial_size, bool is_dir)
             return false;
         }
     }
+#endif
 
     // 3. Create a file with name entry_name in prefix_path
     bool success = (free_map_allocate (1, &inode_sector)

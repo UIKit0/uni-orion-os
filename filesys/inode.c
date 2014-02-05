@@ -322,7 +322,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   while (size > 0) 
     {
       /* Disk sector to read, starting byte offset within sector. */
-      block_sector_t sector_idx = byte_to_sector (inode, offset, inode->data.file_total_size);
+      block_sector_t sector_idx = byte_to_sector (inode, offset, inode_length(inode));
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
@@ -417,7 +417,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 #ifdef FILESYS_EXTEND_FILES
       block_sector_t sector_idx = byte_to_sector (inode, offset, file_size);
 #else
-      block_sector_t sector_idx = byte_to_sector (inode, offset, inode->data.file_total_size);
+      block_sector_t sector_idx = byte_to_sector (inode, offset, inode_length(inode));
 #endif
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
