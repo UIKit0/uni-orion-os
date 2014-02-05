@@ -255,6 +255,7 @@ inode_close (struct inode *inode)
   if (--inode->open_cnt == 0)
     {
       /* Remove from inode list and release lock. */
+      block_write( fs_device, inode->sector, &inode->data );
       list_remove (&inode->elem);
  
       /* Deallocate blocks if removed. */
